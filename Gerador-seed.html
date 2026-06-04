@@ -4,222 +4,410 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Grimório de Seeds — RPG</title>
-
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
-
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
       --gold:#c8973a;--gold-dim:#8a6020;--gold-bright:#f0c860;
       --ink:#0a0806;--parchment:#e8d5b0;--parchment-dim:#9a8060;
       --surface:rgba(255,255,255,0.03);--border:rgba(200,151,58,0.2);
-      --unlocked:#40c080;
+      --unlocked:#40c080;--green:#40c080;--red:#c06040;
     }
     body{background:var(--ink);color:var(--parchment);font-family:'Crimson Pro',Georgia,serif;min-height:100vh}
-    .app{
-      min-height:100vh;
-      background:radial-gradient(ellipse at 15% 5%,rgba(139,69,19,.18) 0%,transparent 45%),
-        radial-gradient(ellipse at 85% 95%,rgba(100,60,20,.14) 0%,transparent 45%),var(--ink);
-      padding:2.5rem 1.5rem 6rem
-    }
-    .container{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:2rem}
-    .header{text-align:center;margin-bottom:1.5rem}
+    .app{min-height:100vh;background:radial-gradient(ellipse at 15% 5%,rgba(139,69,19,.18) 0%,transparent 45%),radial-gradient(ellipse at 85% 95%,rgba(100,60,20,.14) 0%,transparent 45%),var(--ink);padding:2.5rem 1.5rem 6rem}
+    .container{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:1.6rem}
+    .header{text-align:center;margin-bottom:1rem}
     h1{font-family:'Cinzel Decorative',serif;font-size:clamp(1.5rem,4vw,2.2rem);color:var(--gold);letter-spacing:.05em;text-shadow:0 0 40px rgba(200,151,58,.25)}
     .subtitle{font-style:italic;color:var(--parchment-dim);font-size:.98rem;margin-top:.4rem}
-    .nav-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:.5rem}
+
+    /* ── MODAL OVERLAY ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;animation:fadeIn .2s ease}
+    .modal{background:#110d08;border:1px solid rgba(200,151,58,.35);border-radius:8px;padding:2.5rem;width:100%;max-width:540px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+    .modal::before{content:'';position:absolute;inset:0;border-radius:8px;background:radial-gradient(ellipse at 50% 0%,rgba(200,151,58,.08) 0%,transparent 60%);pointer-events:none}
+    .modal-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold);letter-spacing:.08em;margin-bottom:.4rem}
+    .modal-sub{font-style:italic;color:var(--parchment-dim);font-size:.9rem;margin-bottom:1.8rem;line-height:1.5}
+    .modal-section{margin-bottom:1.4rem}
+    .modal-section-title{font-family:'Cinzel Decorative',serif;font-size:.6rem;letter-spacing:.18em;color:var(--gold);text-transform:uppercase;margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem}
+    .modal-section-title::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(200,151,58,.3),transparent)}
+    .field-row{display:flex;flex-direction:column;gap:.35rem;margin-bottom:.8rem}
+    .field-label{font-size:.8rem;color:var(--parchment-dim)}
+    .field-input{background:rgba(0,0,0,.4);border:1px solid rgba(200,151,58,.22);border-radius:4px;padding:.55rem .8rem;font-family:'Crimson Pro',serif;font-size:.95rem;color:var(--parchment);outline:none;transition:border-color .2s;width:100%}
+    .field-input::placeholder{color:#4a3a25;font-style:italic}
+    .field-input:focus{border-color:rgba(200,151,58,.5)}
+    .field-hint{font-size:.75rem;color:#5a4a30;font-style:italic}
+    .field-hint a{color:var(--gold);text-decoration:none}
+    .modal-actions{display:flex;gap:.6rem;margin-top:1.6rem;flex-wrap:wrap}
+    .status-row{display:flex;align-items:center;gap:.5rem;font-size:.82rem;margin-top:.3rem}
+    .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .dot.ok{background:var(--green)}
+    .dot.warn{background:#c8973a}
+    .dot.off{background:#804030}
+
+    /* ── TOPBAR ── */
+    .topbar{display:flex;align-items:center;gap:.8rem;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.65rem 1rem;flex-wrap:wrap}
+    .topbar-provider{display:flex;gap:.4rem}
+    .prov-btn{background:transparent;border:1px solid rgba(200,151,58,.2);border-radius:4px;padding:.3rem .8rem;font-family:'Crimson Pro',serif;font-size:.85rem;color:var(--parchment-dim);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.3rem}
+    .prov-btn:hover{border-color:rgba(200,151,58,.45);color:var(--parchment)}
+    .prov-btn.active{background:rgba(200,151,58,.16);border-color:var(--gold);color:var(--gold-bright)}
+    .prov-btn:disabled{opacity:.35;cursor:not-allowed}
+    .topbar-sep{width:1px;height:24px;background:rgba(200,151,58,.2);flex-shrink:0}
+    .sync-status{font-size:.78rem;font-style:italic;display:flex;align-items:center;gap:.35rem;margin-left:auto}
+    .sync-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+    .sync-dot.synced{background:var(--green)}
+    .sync-dot.syncing{background:var(--gold);animation:pulse .8s infinite}
+    .sync-dot.local{background:#c8973a}
+    .sync-dot.error{background:var(--red)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .btn-settings{background:transparent;border:1px solid rgba(200,151,58,.18);border-radius:4px;padding:.3rem .65rem;font-size:.8rem;color:#7a6a50;cursor:pointer;transition:all .2s;margin-left:.2rem}
+    .btn-settings:hover{border-color:rgba(200,151,58,.4);color:var(--gold)}
+
+    /* ── TABS ── */
+    .nav-tabs{display:flex;border-bottom:1px solid var(--border)}
     .nav-tab{background:transparent;border:none;border-bottom:2px solid transparent;padding:.55rem 1.2rem;font-family:'Cinzel Decorative',serif;font-size:.6rem;letter-spacing:.12em;color:var(--parchment-dim);cursor:pointer;transition:all .2s;text-transform:uppercase;position:relative;bottom:-1px}
     .nav-tab:hover{color:var(--gold)}
     .nav-tab.active{color:var(--gold-bright);border-bottom-color:var(--gold)}
     .badge-count{background:rgba(200,151,58,.2);border-radius:10px;padding:0 .35rem;font-size:.58rem;margin-left:.3rem;color:var(--gold)}
-    
-    .section{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.8rem 2rem;margin-bottom:.5rem}
+
+    /* ── SECTIONS ── */
+    .section{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.8rem 2rem}
     .section-title{font-family:'Cinzel Decorative',serif;font-size:.68rem;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;margin-bottom:1.2rem;display:flex;align-items:center;gap:.6rem}
     .section-title::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(200,151,58,.35),transparent)}
-    
-    .chip-grid{display:flex;flex-wrap:wrap;gap:.6rem .75rem;line-height:1.5}
-    .chip{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:.45rem 1rem;font-family:'Crimson Pro',serif;font-size:.93rem;color:var(--parchment-dim);cursor:pointer;transition:all .15s ease-in-out;display:flex;align-items:center;gap:.4rem;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+
+    /* ── CHIPS / TAGS ── */
+    .chip-grid{display:flex;flex-wrap:wrap;gap:.6rem .75rem}
+    .chip{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:.45rem 1rem;font-family:'Crimson Pro',serif;font-size:.93rem;color:var(--parchment-dim);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.4rem;white-space:nowrap}
     .chip:hover{border-color:rgba(200,151,58,.55);color:var(--parchment);background:rgba(200,151,58,.07);transform:translateY(-1px)}
-    .chip.active{background:rgba(200,151,58,0.17);border-color:var(--gold);color:var(--gold-bright);box-shadow:0 2px 10px rgba(200,151,58,.22)}
+    .chip.active{background:rgba(200,151,58,.17);border-color:var(--gold);color:var(--gold-bright);box-shadow:0 2px 10px rgba(200,151,58,.22)}
     .chip.unlocked{border-color:rgba(64,192,128,.45)}
     .chip .unlock-dot{width:5px;height:5px;border-radius:50%;background:var(--unlocked);display:inline-block;flex-shrink:0}
     .chip .use-count{font-size:.65rem;opacity:.45;margin-left:.2rem}
     .chip.new-anim{animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
-    
     @keyframes popIn{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
-    
+
     .tag-grid{display:flex;flex-wrap:wrap;gap:.45rem .6rem}
-    .tag{background:var(--surface);border:1px solid rgba(150,110,50,.25);border-radius:20px;padding:.32rem .9rem;font-size:.88rem;color:#8a7255;cursor:pointer;transition:all .15s ease-in-out;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.08)}
+    .tag{background:var(--surface);border:1px solid rgba(150,110,50,.25);border-radius:20px;padding:.32rem .9rem;font-size:.88rem;color:#8a7255;cursor:pointer;transition:all .15s;white-space:nowrap}
     .tag:hover{border-color:rgba(200,151,58,.4);color:#c8a860;transform:translateY(-1px)}
-    .tag.active{background:rgba(180,100,30,.2);border-color:#a87830;color:var(--gold-bright);box-shadow:0 2px 8px rgba(180,100,30,0.15)}
+    .tag.active{background:rgba(180,100,30,.2);border-color:#a87830;color:var(--gold-bright)}
     .tag.unlocked{border-color:rgba(64,192,128,.38)}
     .tag.new-anim{animation:popIn .4s cubic-bezier(.34,1.56,.64,1)}
-    
+
+    /* ── ESCOPO ── */
     .escopo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
-    .escopo-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.2rem .9rem;cursor:pointer;transition:all .2s;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+    .escopo-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.2rem .9rem;cursor:pointer;transition:all .2s;text-align:center}
     .escopo-card:hover{border-color:rgba(200,151,58,.5);background:rgba(200,151,58,.07);transform:translateY(-1px)}
     .escopo-card.active{background:rgba(200,151,58,.15);border-color:var(--gold);box-shadow:0 3px 14px rgba(200,151,58,.2)}
     .escopo-icon{font-size:1.6rem;margin-bottom:.35rem}
     .escopo-label{font-family:'Cinzel Decorative',serif;font-size:.68rem;color:var(--gold);display:block;margin-bottom:.25rem;font-weight:700}
     .escopo-desc{font-style:italic;font-size:.82rem;color:#7a6a50}
-    
-    .unlock-notice{background:rgba(64,192,128,.08);border:1px solid rgba(64,192,128,.3);border-radius:5px;padding:.75rem 1rem;font-size:.88rem;color:#60d090;display:flex;align-items:flex-start;gap:.5rem;animation:fadeSlide .4s ease}
-    @keyframes fadeSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
-    
-    .generate-area { text-align: center; padding: 1.2rem 0; margin-top: .5rem; }
-    .missing-warn{font-style:italic;color:#7a5540;font-size:.88rem;margin-top:.6rem}
-    
+
+    /* ── BUTTONS ── */
     .btn{border-radius:4px;font-family:'Crimson Pro',serif;cursor:pointer;transition:all .2s;border:1px solid;font-weight:600}
     .btn-primary{background:linear-gradient(135deg,#6b3010,#c8973a,#6b3010);background-size:200% 100%;border-color:var(--gold);padding:1rem 3.2rem;font-family:'Cinzel Decorative',serif;font-size:.95rem;color:#fef0c8;letter-spacing:.1em;box-shadow:0 4px 20px rgba(200,151,58,.18),inset 0 1px 0 rgba(255,255,255,.08);position:relative;overflow:hidden}
     .btn-primary:hover:not(:disabled){background-position:right center;box-shadow:0 6px 35px rgba(200,151,58,.4);transform:translateY(-1px)}
-    .btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+    .btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none}
     .btn-primary.loading::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 25%,rgba(255,255,255,.15) 50%,transparent 75%);background-size:200% 100%;animation:shimmer 1.2s infinite}
     @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-    
     .btn-ghost{background:transparent;border-color:rgba(200,151,58,.2);padding:.45rem 1.1rem;font-size:.88rem;color:#7a6a50}
-    .btn-ghost:hover{border-color:rgba(200,151,58,.45);color:var(--gold);background:rgba(200,151,58,0.05)}
-    .btn-ingest{background:rgba(200,151,58,.12);border-color:rgba(200,151,58,.35);padding:.55rem 1.3rem;font-size:.93rem;color:var(--gold)}
+    .btn-ghost:hover{border-color:rgba(200,151,58,.45);color:var(--gold);background:rgba(200,151,58,.05)}
+    .btn-ingest{background:rgba(200,151,58,.12);border-color:rgba(200,151,58,.35);padding:.45rem 1.1rem;font-size:.88rem;color:var(--gold)}
     .btn-ingest:hover:not(:disabled){background:rgba(200,151,58,.22);transform:translateY(-1px)}
     .btn-ingest:disabled{opacity:.4;cursor:not-allowed}
-    
-    /* CAIXA DE RESULTADOS ESPAÇADA - ESTILO LIVRO DE RPG */
-    .result-box{background:rgba(8,4,2,.92);border:1px solid rgba(200,151,58,.35);border-radius:6px;padding:3rem 4rem;position:relative;animation:fadeIn .5s ease;box-shadow:0 8px 30px rgba(0,0,0,0.5);margin-top:1rem}
+    .btn-danger{background:transparent;border-color:rgba(192,96,64,.3);color:#c06040}
+    .btn-danger:hover{background:rgba(192,64,40,.1);border-color:rgba(192,96,64,.5)}
+
+    /* ── RESULT ── */
+    .generate-area{text-align:center;padding:1.2rem 0;margin-top:.5rem}
+    .unlock-notice{background:rgba(64,192,128,.08);border:1px solid rgba(64,192,128,.3);border-radius:5px;padding:.75rem 1rem;font-size:.88rem;color:#60d090;display:flex;align-items:flex-start;gap:.5rem;animation:fadeSlide .4s ease}
+    @keyframes fadeSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+    .result-box{background:rgba(8,4,2,.92);border:1px solid rgba(200,151,58,.35);border-radius:6px;padding:3rem 4rem;position:relative;animation:fadeIn .5s ease;box-shadow:0 8px 30px rgba(0,0,0,.5);margin-top:1rem}
     @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
     .result-box::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(ellipse at 50% 0%,rgba(200,151,58,.07) 0%,transparent 65%);pointer-events:none}
     .result-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.8rem;padding-bottom:1rem;border-bottom:1px solid rgba(200,151,58,.22);flex-wrap:wrap;gap:.6rem}
     .result-label{font-family:'Cinzel Decorative',serif;font-size:.65rem;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;font-weight:700}
     .result-badges{display:flex;gap:.4rem;flex-wrap:wrap}
     .badge{background:rgba(200,151,58,.1);border:1px solid rgba(200,151,58,.28);border-radius:3px;padding:.15rem .5rem;font-size:.72rem;color:#c8973a;font-style:italic;font-weight:600}
-    
-    .result-content{font-size:1.22rem;line-height:2;color:#e3d5b8}
-    .result-content span { display: block; margin-bottom: 1.6rem; text-align: justify; }
-
-    /* MARCADORES EM DUAS COLUNAS FLEX CONTRA ENCAVALAMENTO */
-    .grimorio-bullet-container {
-      display: flex !important;
-      align-items: flex-start !important;
-      gap: 1.2rem !important; 
-      margin-bottom: 1.5rem !important;
-    }
-    .grimorio-bullet-marker {
-      color: var(--gold) !important;
-      font-size: 0.85rem !important;
-      line-height: 2 !important;
-      flex-shrink: 0 !important;
-      user-select: none;
-    }
-    .grimorio-bullet-text {
-      flex: 1 !important;
-      text-align: justify !important;
-      line-height: 2 !important;
-      color: #e3d5b8 !important;
-    }
-
+    .result-content{font-size:1.15rem;line-height:2;color:#e3d5b8}
+    .grimorio-bullet-container{display:flex !important;align-items:flex-start !important;gap:1.2rem !important;margin-bottom:1.5rem !important}
+    .grimorio-bullet-marker{color:var(--gold) !important;font-size:.85rem !important;line-height:2 !important;flex-shrink:0 !important;user-select:none}
+    .grimorio-bullet-text{flex:1 !important;text-align:justify !important;line-height:2 !important;color:#e3d5b8 !important}
     .result-actions{display:flex;gap:.5rem;margin-top:2.5rem;padding-top:1rem;border-top:1px solid rgba(200,151,58,.18);flex-wrap:wrap}
-    
-    /* Caixa do Prompt de Dicas / Diretrizes */
-    .idea-area{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.8rem 2rem;margin-top:0.5rem}
+
+    /* ── IDEA ── */
+    .idea-area{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.8rem 2rem}
     .idea-textarea{width:100%;background:rgba(0,0,0,.4);border:1px solid rgba(200,151,58,.25);border-radius:4px;padding:1rem;font-family:'Crimson Pro',serif;font-size:1.05rem;color:var(--parchment);resize:vertical;min-height:110px;outline:none;transition:border-color .2s;line-height:1.6}
     .idea-textarea::placeholder{color:#5a4528;font-style:italic}
     .idea-textarea:focus{border-color:rgba(200,151,58,.5)}
     .idea-hint{font-size:.85rem;font-style:italic;color:#735c3a;margin-top:.6rem;font-weight:600}
-    .idea-actions{display:flex;gap:.5rem .6rem;margin-top:1.2rem;flex-wrap:wrap;align-items:center}
-    .idea-quick-btn { background: rgba(200,151,58,0.1); border: 1px solid rgba(200,151,58,0.25); border-radius: 4px; padding: .35rem .8rem; font-size: .85rem; color: var(--gold-bright); cursor: pointer; transition: all .15s; font-family: 'Crimson Pro', serif; font-weight: 600; }
-    .idea-quick-btn:hover { background: rgba(200,151,58,0.2); border-color: var(--gold); }
-    
+    .idea-actions{display:flex;gap:.5rem;margin-top:1.2rem;flex-wrap:wrap;align-items:center}
+    .idea-quick-btn{background:rgba(200,151,58,.1);border:1px solid rgba(200,151,58,.25);border-radius:4px;padding:.35rem .8rem;font-size:.85rem;color:var(--gold-bright);cursor:pointer;transition:all .15s;font-family:'Crimson Pro',serif;font-weight:600}
+    .idea-quick-btn:hover{background:rgba(200,151,58,.2);border-color:var(--gold)}
     .ingested-preview{background:rgba(200,151,58,.04);border:1px dashed rgba(200,151,58,.35);border-radius:5px;padding:1.4rem;margin-top:2rem;animation:fadeSlide .3s ease}
     .ingested-title{font-family:'Cinzel Decorative',serif;font-size:.65rem;letter-spacing:.15em;color:var(--gold);text-transform:uppercase;margin-bottom:1rem;font-weight:700}
-    .ingested-items{display:flex;flex-wrap:wrap;gap:.6rem .75rem}
-    .ingested-item{background:rgba(200,151,58,.12);border:1px solid rgba(200,151,58,.3);border-radius:4px;padding:.38rem .85rem;font-size:.88rem;color:var(--gold-bright);display:flex;align-items:center;gap:.35rem;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,0.2);transition:all .15s}
-    .ingested-item:hover{background:rgba(200,151,58,.22);transform:translateY(-1px)}
-    .ingested-item .type-badge{font-size:.65rem;opacity:.55;font-weight:normal}
-    
+    .ingested-items{display:flex;flex-wrap:wrap;gap:.6rem}
+
+    /* ── HISTORY ── */
     .history-list{display:flex;flex-direction:column;gap:1rem}
     .history-item{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1.2rem 1.4rem;cursor:pointer;transition:all .2s}
     .history-item:hover{border-color:rgba(200,151,58,.4);background:rgba(200,151,58,.05)}
     .history-meta{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem}
     .history-preview{font-size:.93rem;color:var(--parchment-dim);font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .history-date{font-size:.78rem;color:#5a4a30;margin-top:.4rem}
-    
+
+    /* ── STATS ── */
     .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:1rem}
     .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:1.2rem;text-align:center}
-    .stat-num{font-family:'Cinzel Decorative',serif;font-size:1.75rem;color:var(--gold);text-shadow:0 0 10px rgba(200,151,58,0.1)}
+    .stat-num{font-family:'Cinzel Decorative',serif;font-size:1.75rem;color:var(--gold)}
     .stat-label{font-size:.82rem;color:var(--parchment-dim);font-style:italic;margin-top:.3rem}
     .empty-state{text-align:center;padding:4rem 2rem;color:var(--parchment-dim);font-style:italic;font-size:1.05rem}
-    .error-msg{color:#c06040;font-style:italic;text-align:center;padding:1rem}
-    .api-warning{background:rgba(180,80,20,.12);border:1px solid rgba(200,100,30,.4);border-radius:6px;padding:1.2rem 1.4rem;font-size:.95rem;color:#e0a060;line-height:1.6;margin-bottom:1rem}
-    .api-warning code{background:rgba(0,0,0,.4);padding:.15rem .45rem;border-radius:3px;font-family:monospace;font-size:.88rem;color:#f0c860}
-    
-    @media(max-width:768px){
-      .escopo-grid{grid-template-columns:1fr;gap:.8rem}
-      .result-header{flex-direction:column}
-      .result-box{padding:2rem 1.5rem;font-size:1.1rem}
-      .app{padding:1.5rem 1rem 4rem}
-      .section{padding:1.3rem 1.1rem}
-    }
+    .error-msg{color:var(--red);font-style:italic;text-align:center;padding:1rem}
+    @media(max-width:768px){.escopo-grid{grid-template-columns:1fr}.result-box{padding:2rem 1.5rem}.app{padding:1.5rem 1rem 4rem}.section{padding:1.3rem 1.1rem}.modal{padding:1.8rem}}
   </style>
 </head>
 <body>
   <div id="root"></div>
-
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
 
+    // ── DEFAULTS ──────────────────────────────────────────────────────────────
     const DEFAULT_TEMAS = [
-      { id: "fantasia", label: "Fantasia Medieval", icon: "⚔️", uses: 0 },
-      { id: "horror", label: "Horror Cósmico", icon: "💀", uses: 0 },
-      { id: "sci-fi", label: "Sci-Fi Espacial", icon: "🚀", uses: 0 },
-      { id: "cyberpunk", label: "Cyberpunk", icon: "🤖", uses: 0 },
-      { id: "mitologia", label: "Mitologia & Deuses", icon: "🏛️", uses: 0 }
+      { id:"fantasia", label:"Fantasia Medieval", icon:"⚔️", uses:0 },
+      { id:"horror", label:"Horror Cósmico", icon:"💀", uses:0 },
+      { id:"sci-fi", label:"Sci-Fi Espacial", icon:"🚀", uses:0 },
+      { id:"cyberpunk", label:"Cyberpunk", icon:"🤖", uses:0 },
+      { id:"mitologia", label:"Mitologia & Deuses", icon:"🏛️", uses:0 },
+      { id:"western", label:"Western", icon:"🤠", uses:0 },
+      { id:"pirata", label:"Pirata", icon:"🏴‍☠️", uses:0 },
+      { id:"pos-apocalipse", label:"Pós-Apocalipse", icon:"☢️", uses:0 },
     ];
-
     const DEFAULT_CENARIOS = [
-      { id: "floresta", label: "Florestas Ancestrais", icon: "🌲", uses: 0 },
-      { id: "cidade", label: "Metrópoles Decadentes", icon: "🏙️", uses: 0 },
-      { id: "dungeon", label: "Dungeons & Ruínas", icon: "🗝️", uses: 0 },
-      { id: "oceano", label: "Oceanos Desconhecidos", icon: "🌊", uses: 0 },
-      { id: "espaco", label: "Estações Orbitais", icon: "🌌", uses: 0 }
+      { id:"floresta", label:"Florestas Ancestrais", icon:"🌲", uses:0 },
+      { id:"cidade", label:"Metrópoles Decadentes", icon:"🏙️", uses:0 },
+      { id:"dungeon", label:"Dungeons & Ruínas", icon:"🗝️", uses:0 },
+      { id:"oceano", label:"Oceanos Desconhecidos", icon:"🌊", uses:0 },
+      { id:"espaco", label:"Estações Orbitais", icon:"🌌", uses:0 },
+      { id:"deserto", label:"Deserto Maldito", icon:"🏜️", uses:0 },
+      { id:"montanha", label:"Montanhas Proibidas", icon:"⛰️", uses:0 },
+      { id:"subterraneo", label:"Subterrâneo Profundo", icon:"⛏️", uses:0 },
     ];
-
     const DEFAULT_TAGS = [
-      { id: "traicao", label: "traição", uses: 0 },
-      { id: "misterio", label: "mistério", uses: 0 },
-      { id: "investigacao", label: "investigação", uses: 0 },
-      { id: "faccoes", label: "conflito de facções", uses: 0 },
-      { id: "artefato", label: "artefato antigo", uses: 0 },
-      { id: "sobrevivencia", label: "sobrevivência", uses: 0 },
-      { id: "politica", label: "intriga política", uses: 0 },
-      { id: "magia-selvagem", label: "magia instável", uses: 0 }
+      { id:"traicao", label:"traição", uses:0 },
+      { id:"misterio", label:"mistério", uses:0 },
+      { id:"investigacao", label:"investigação", uses:0 },
+      { id:"faccoes", label:"conflito de facções", uses:0 },
+      { id:"artefato", label:"artefato antigo", uses:0 },
+      { id:"sobrevivencia", label:"sobrevivência", uses:0 },
+      { id:"politica", label:"intriga política", uses:0 },
+      { id:"magia-selvagem", label:"magia instável", uses:0 },
     ];
-
     const ESCOPOS = [
-      { id: "one-shot", label: "One Shot", desc: "Sessão única fechada (~3-4h)", icon: "⚡" },
-      { id: "aventura-curta", label: "Aventura Curta", desc: "Arco focado de 2 a 4 sessões", icon: "📜" },
-      { id: "campanha", label: "Seed de Campanha", desc: "Fundação para uma crônica longa", icon: "📚" }
+      { id:"one-shot", label:"One Shot", desc:"Sessão única fechada (~3-4h)", icon:"⚡" },
+      { id:"aventura-curta", label:"Aventura Curta", desc:"Arco focado de 2 a 4 sessões", icon:"📜" },
+      { id:"campanha", label:"Seed de Campanha", desc:"Fundação para uma crônica longa", icon:"📚" },
     ];
 
-    const KEYS = { temas: "rpg-grimorio-temas", cenarios: "rpg-grimorio-cenarios", tags: "rpg-grimorio-tags", historico: "rpg-grimorio-historico", apiKeys: "rpg-grimorio-apikeys" };
+    const STORAGE_KEYS = { temas:"rpg-temas", cenarios:"rpg-cenarios", tags:"rpg-tags", historico:"rpg-historico" };
+    const CFG_KEY = "rpg-grimorio-cfg";
 
+    // ── LOCAL STORAGE ─────────────────────────────────────────────────────────
     function lsGet(key, fallback) {
       try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
       catch { return fallback; }
     }
     function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+    function loadCfg() { return lsGet(CFG_KEY, { anthropicKey:"", deepseekKey:"", githubToken:"", gistId:"", provider:"deepseek" }); }
+    function saveCfg(cfg) { lsSet(CFG_KEY, cfg); }
 
+    // ── GITHUB GIST SYNC ──────────────────────────────────────────────────────
+    const GIST_FILENAME = "grimorio-seeds-data.json";
+
+    async function gistRead(token, gistId) {
+      const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" }
+      });
+      if (!r.ok) throw new Error("Gist não encontrado ou token inválido");
+      const data = await r.json();
+      const content = data.files?.[GIST_FILENAME]?.content;
+      if (!content) throw new Error("Arquivo não encontrado no Gist");
+      return JSON.parse(content);
+    }
+
+    async function gistWrite(token, gistId, payload) {
+      const body = { files: { [GIST_FILENAME]: { content: JSON.stringify(payload, null, 2) } } };
+      const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/vnd.github+json" },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error("Falha ao salvar no Gist");
+    }
+
+    async function gistCreate(token) {
+      const body = {
+        description: "Grimório de Seeds — RPG Data",
+        public: false,
+        files: { [GIST_FILENAME]: { content: JSON.stringify({ temas: DEFAULT_TEMAS, cenarios: DEFAULT_CENARIOS, tags: DEFAULT_TAGS, historico: [] }, null, 2) } }
+      };
+      const r = await fetch("https://api.github.com/gists", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/vnd.github+json" },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) throw new Error("Falha ao criar Gist");
+      const data = await r.json();
+      return data.id;
+    }
+
+    // ── SETTINGS MODAL ────────────────────────────────────────────────────────
+    function SettingsModal({ cfg, onSave, onClose, isFirstRun }) {
+      const [form, setForm] = useState({ ...cfg });
+      const [testing, setTesting] = useState(null);
+      const [testResult, setTestResult] = useState({});
+
+      const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+      const testGist = async () => {
+        if (!form.githubToken) return;
+        setTesting("gist");
+        try {
+          let gid = form.gistId;
+          if (!gid) {
+            gid = await gistCreate(form.githubToken);
+            set("gistId", gid);
+            setForm(p => ({ ...p, gistId: gid }));
+          } else {
+            await gistRead(form.githubToken, gid);
+          }
+          setTestResult(p => ({ ...p, gist: "ok" }));
+        } catch(e) {
+          setTestResult(p => ({ ...p, gist: e.message }));
+        }
+        setTesting(null);
+      };
+
+      const testAI = async (provider) => {
+        const key = provider === "anthropic" ? form.anthropicKey : form.deepseekKey;
+        if (!key) return;
+        setTesting(provider);
+        try {
+          if (provider === "deepseek") {
+            const r = await fetch("https://api.deepseek.com/chat/completions", {
+              method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`},
+              body: JSON.stringify({ model:"deepseek-chat", max_tokens:10, messages:[{role:"user",content:"ok"}] })
+            });
+            if (!r.ok) throw new Error("Chave inválida");
+          } else {
+            const r = await fetch("https://api.anthropic.com/v1/messages", {
+              method:"POST",
+              headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+              body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:10, messages:[{role:"user",content:"ok"}] })
+            });
+            if (!r.ok) throw new Error("Chave inválida");
+          }
+          setTestResult(p => ({ ...p, [provider]:"ok" }));
+        } catch(e) {
+          setTestResult(p => ({ ...p, [provider]:e.message }));
+        }
+        setTesting(null);
+      };
+
+      const StatusDot = ({ k }) => {
+        const v = testResult[k];
+        if (!v) return null;
+        return <span style={{fontSize:".78rem", color: v==="ok"?"var(--green)":"var(--red)", marginLeft:".4rem"}}>{v==="ok"?"✓ OK":"✗ "+v}</span>;
+      };
+
+      return (
+        <div className="modal-overlay" onClick={e => { if(!isFirstRun && e.target===e.currentTarget) onClose(); }}>
+          <div className="modal">
+            <div className="modal-title">✦ Configuração do Grimório</div>
+            <p className="modal-sub">
+              {isFirstRun
+                ? "Bem-vindo! Configure suas chaves de API para começar. Os dados ficam salvos em um Gist privado no seu GitHub."
+                : "Gerencie suas chaves de API e sincronização com GitHub Gist."}
+            </p>
+
+            <div className="modal-section">
+              <div className="modal-section-title">Oráculo de IA</div>
+              <div className="field-row">
+                <label className="field-label">Chave DeepSeek</label>
+                <input className="field-input" type="password" placeholder="sk-..." value={form.deepseekKey} onChange={e=>set("deepseekKey",e.target.value)} />
+                <span className="field-hint">Obtenha em <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a></span>
+                <div style={{display:"flex",alignItems:"center",gap:".5rem",marginTop:".2rem"}}>
+                  <button className="btn btn-ghost" style={{padding:".28rem .7rem",fontSize:".78rem"}} onClick={()=>testAI("deepseek")} disabled={!form.deepseekKey||testing==="deepseek"}>
+                    {testing==="deepseek"?"testando…":"Testar"}
+                  </button>
+                  <StatusDot k="deepseek"/>
+                </div>
+              </div>
+              <div className="field-row">
+                <label className="field-label">Chave Anthropic (Claude)</label>
+                <input className="field-input" type="password" placeholder="sk-ant-..." value={form.anthropicKey} onChange={e=>set("anthropicKey",e.target.value)} />
+                <span className="field-hint">Obtenha em <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a></span>
+                <div style={{display:"flex",alignItems:"center",gap:".5rem",marginTop:".2rem"}}>
+                  <button className="btn btn-ghost" style={{padding:".28rem .7rem",fontSize:".78rem"}} onClick={()=>testAI("anthropic")} disabled={!form.anthropicKey||testing==="anthropic"}>
+                    {testing==="anthropic"?"testando…":"Testar"}
+                  </button>
+                  <StatusDot k="anthropic"/>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-section">
+              <div className="modal-section-title">Sincronização — GitHub Gist</div>
+              <div className="field-row">
+                <label className="field-label">Token GitHub (gist scope)</label>
+                <input className="field-input" type="password" placeholder="ghp_..." value={form.githubToken} onChange={e=>set("githubToken",e.target.value)} />
+                <span className="field-hint">Crie em <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank">github.com/settings/tokens</a> — marque apenas o escopo <strong>gist</strong></span>
+              </div>
+              <div className="field-row">
+                <label className="field-label">ID do Gist (deixe vazio para criar um novo)</label>
+                <input className="field-input" type="text" placeholder="abc123def456..." value={form.gistId} onChange={e=>set("gistId",e.target.value)} />
+                <div style={{display:"flex",alignItems:"center",gap:".5rem",marginTop:".35rem"}}>
+                  <button className="btn btn-ghost" style={{padding:".28rem .7rem",fontSize:".78rem"}} onClick={testGist} disabled={!form.githubToken||testing==="gist"}>
+                    {testing==="gist"?"conectando…":form.gistId?"Testar conexão":"Criar Gist novo"}
+                  </button>
+                  <StatusDot k="gist"/>
+                  {testResult.gist==="ok" && form.gistId && (
+                    <a href={`https://gist.github.com/${form.gistId}`} target="_blank" style={{fontSize:".75rem",color:"var(--gold)",marginLeft:".3rem"}}>ver gist ↗</a>
+                  )}
+                </div>
+              </div>
+              <p style={{fontSize:".78rem",fontStyle:"italic",color:"#5a4a30",marginTop:".3rem"}}>
+                Sem GitHub: os dados ficam apenas no localStorage deste navegador.
+              </p>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-primary" style={{padding:".7rem 2rem",fontSize:".88rem"}}
+                onClick={() => { onSave({ ...form }); onClose(); }}>
+                ✓ Salvar e Fechar
+              </button>
+              {!isFirstRun && (
+                <button className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ── MAIN APP ──────────────────────────────────────────────────────────────
     function App() {
+      const [cfg, setCfg] = useState(() => loadCfg());
+      const [showSettings, setShowSettings] = useState(false);
+      const isFirstRun = !cfg.anthropicKey && !cfg.deepseekKey;
+
       const [tab, setTab] = useState("gerar");
-      const [apiProvider, setApiProvider] = useState("deepseek");
+      const [provider, setProvider] = useState(cfg.provider || "deepseek");
 
-      // Gerenciamento de chaves (seguro, local)
-      const [apiKeys, setApiKeys] = useState(() => lsGet(KEYS.apiKeys, { anthropic: "", deepseek: "" }));
-
-      const [temas, setTemas] = useState(() => lsGet(KEYS.temas, DEFAULT_TEMAS));
-      const [cenarios, setCenarios] = useState(() => lsGet(KEYS.cenarios, DEFAULT_CENARIOS));
-      const [tags, setTags] = useState(() => lsGet(KEYS.tags, DEFAULT_TAGS));
-      const [historico, setHistorico] = useState(() => lsGet(KEYS.historico, []));
+      const [temas, setTemas] = useState(() => lsGet(STORAGE_KEYS.temas, DEFAULT_TEMAS));
+      const [cenarios, setCenarios] = useState(() => lsGet(STORAGE_KEYS.cenarios, DEFAULT_CENARIOS));
+      const [tags, setTags] = useState(() => lsGet(STORAGE_KEYS.tags, DEFAULT_TAGS));
+      const [historico, setHistorico] = useState(() => lsGet(STORAGE_KEYS.historico, []));
 
       const [tema, setTema] = useState(null);
       const [cenario, setCenario] = useState(null);
@@ -233,499 +421,441 @@
       const [sugestoes, setSugestoes] = useState(null);
       const [justUnlocked, setJustUnlocked] = useState(null);
 
-      const saveKey = (provider, val) => {
-        const newKeys = { ...apiKeys, [provider]: val };
-        setApiKeys(newKeys);
-        lsSet(KEYS.apiKeys, newKeys);
+      const [syncStatus, setSyncStatus] = useState("local"); // local | syncing | synced | error
+      const [syncMsg, setSyncMsg] = useState("");
+      const syncRef = useRef(null);
+
+      // Load from Gist on startup
+      useEffect(() => {
+        if (cfg.githubToken && cfg.gistId) { syncFromGist(); }
+      }, []);
+
+      const syncFromGist = async () => {
+        if (!cfg.githubToken || !cfg.gistId) return;
+        setSyncStatus("syncing");
+        try {
+          const data = await gistRead(cfg.githubToken, cfg.gistId);
+          if (data.temas) { setTemas(data.temas); lsSet(STORAGE_KEYS.temas, data.temas); }
+          if (data.cenarios) { setCenarios(data.cenarios); lsSet(STORAGE_KEYS.cenarios, data.cenarios); }
+          if (data.tags) { setTags(data.tags); lsSet(STORAGE_KEYS.tags, data.tags); }
+          if (data.historico) { setHistorico(data.historico); lsSet(STORAGE_KEYS.historico, data.historico); }
+          setSyncStatus("synced"); setSyncMsg("Sincronizado");
+        } catch(e) {
+          setSyncStatus("error"); setSyncMsg("Erro: " + e.message);
+        }
       };
 
-      const callAI = async (prompt, maxTokens = 4000) => {
-        const currentKey = apiKeys[apiProvider];
-        
-        if (!currentKey || currentKey.trim() === "") {
-            throw new Error(`A chave do Oráculo (${apiProvider.toUpperCase()}) não foi configurada. Insira sua chave no painel acima.`);
+      const syncToGist = useCallback(async (tObj, cObj, tgObj, hObj) => {
+        const c = loadCfg();
+        if (!c.githubToken || !c.gistId) return;
+        setSyncStatus("syncing");
+        try {
+          await gistWrite(c.githubToken, c.gistId, { temas: tObj, cenarios: cObj, tags: tgObj, historico: hObj });
+          setSyncStatus("synced"); setSyncMsg("Salvo no Gist");
+        } catch(e) {
+          setSyncStatus("error"); setSyncMsg("Erro ao salvar: " + e.message);
         }
+      }, []);
 
-        if (apiProvider === "deepseek") {
-          const res = await fetch("https://api.deepseek.com/chat/completions", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentKey}` },
-            body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: prompt }] })
+      // Debounced auto-sync
+      const scheduleSync = (t, c, tg, h) => {
+        clearTimeout(syncRef.current);
+        syncRef.current = setTimeout(() => syncToGist(t, c, tg, h), 2000);
+      };
+
+      const updateTemas = (v) => { setTemas(v); lsSet(STORAGE_KEYS.temas, v); scheduleSync(v, cenarios, tags, historico); };
+      const updateCenarios = (v) => { setCenarios(v); lsSet(STORAGE_KEYS.cenarios, v); scheduleSync(temas, v, tags, historico); };
+      const updateTags = (v) => { setTags(v); lsSet(STORAGE_KEYS.tags, v); scheduleSync(temas, cenarios, v, historico); };
+      const updateHistorico = (v) => { setHistorico(v); lsSet(STORAGE_KEYS.historico, v); scheduleSync(temas, cenarios, tags, v); };
+
+      const handleSaveCfg = (newCfg) => {
+        saveCfg(newCfg);
+        setCfg(newCfg);
+        setProvider(newCfg.provider || provider);
+        if (newCfg.githubToken && newCfg.gistId) syncFromGist();
+      };
+
+      const providerKey = provider === "deepseek" ? cfg.deepseekKey : cfg.anthropicKey;
+      const providerOk = providerKey && providerKey.length > 10;
+
+      // ── AI CALL ──────────────────────────────────────────────────────────────
+      const callAI = async (prompt, maxTokens = 3000) => {
+        if (!providerOk) throw new Error("Configure a chave de API nas Configurações (⚙)");
+        if (provider === "deepseek") {
+          const r = await fetch("https://api.deepseek.com/chat/completions", {
+            method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":`Bearer ${cfg.deepseekKey}`},
+            body: JSON.stringify({ model:"deepseek-chat", messages:[{role:"user",content:prompt}] })
           });
-          const data = await res.json();
-          if(!data.choices) throw new Error("Falha na API DeepSeek. Verifique sua chave.");
+          const data = await r.json();
+          if (!data.choices) throw new Error(data.error?.message || "Falha na API DeepSeek");
           return data.choices[0].message.content;
         } else {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { 
-              "Content-Type": "application/json", 
-              "x-api-key": currentKey, 
-              "anthropic-version": "2023-06-01",
-              "anthropic-dangerously-allow-browser": "true" 
-            },
-            body: JSON.stringify({ model: "claude-3-haiku-20240307", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] })
+          const r = await fetch("https://api.anthropic.com/v1/messages", {
+            method:"POST",
+            headers:{"Content-Type":"application/json","x-api-key":cfg.anthropicKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+            body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:maxTokens, messages:[{role:"user",content:prompt}] })
           });
-          const data = await res.json();
-          if(!data.content) throw new Error("Falha na API Anthropic. Verifique sua chave.");
+          const data = await r.json();
+          if (!data.content) throw new Error(data.error?.message || "Falha na API Anthropic");
           return data.content[0].text;
         }
       };
 
+      // ── GENERATE ─────────────────────────────────────────────────────────────
       const generateSeed = async () => {
-        setLoading(true);
-        setResultado(null);
-        setSugestoes(null);
-        setJustUnlocked(null);
-        
-        const tObj = temas.find(x => x.id === tema);
-        const cObj = cenarios.find(x => x.id === cenario);
-        const eObj = ESCOPOS.find(x => x.id === escopo);
-        const selTags = activeTags.map(id => tags.find(x => x.id === id)).filter(Boolean);
-
+        setLoading(true); setResultado(null); setSugestoes(null); setJustUnlocked(null);
+        const tObj = temas.find(x=>x.id===tema);
+        const cObj = cenarios.find(x=>x.id===cenario);
+        const eObj = ESCOPOS.find(x=>x.id===escopo);
+        const selTags = activeTags.map(id=>tags.find(x=>x.id===id)).filter(Boolean);
         const prompt = `Você é um mestre de RPG ancião e criativo. Gere uma seed de aventura RPG totalmente agnóstica de sistema com base nas diretrizes abaixo:
-        - Tema Base: ${tObj ? tObj.label : "Livre/Híbrido"}
-        - Cenário de Fundo: ${cObj ? cObj.label : "Livre/Híbrido"}
-        - Escopo Estrutural: ${eObj ? `${eObj.label} (${eObj.desc})` : "Aventura Padrão"}
-        - Elementos Requeridos (Tags): ${selTags.length > 0 ? selTags.map(x=>x.label).join(", ") : "Livre"}
-        ${dica.trim() ? `- DIRETRIZ ESPECÍFICA DO MESTRE (Foque nisso fortemente): ${dica}` : ""}
+- Tema Base: ${tObj?tObj.label:"Livre/Híbrido"}
+- Cenário de Fundo: ${cObj?cObj.label:"Livre/Híbrido"}
+- Escopo Estrutural: ${eObj?`${eObj.label} (${eObj.desc})`:"Aventura Padrão"}
+- Elementos Requeridos (Tags): ${selTags.length>0?selTags.map(x=>x.label).join(", "):"Livre"}
+${dica.trim()?`- DIRETRIZ ESPECÍFICA DO MESTRE: ${dica}`:""}
 
-        A resposta DEVE ser estritamente formatada em Markdown usando exatamente os títulos abaixo com "## ":
-        ## Título
-        Um título memorável e evocativo para a semente.
-        ## Premissa
-        2 a 3 parágrafos imersivos detalhando a atmosfera, o conflito central, o mistério subjacente e o que está em jogo para o mundo.
-        ## Ponto de Partida
-        Uma descrição prática de como os personagens dos jogadores são inseridos fisicamente nesta situação.
-        ## Elementos-Chave
-        Exatamente 5 tópicos (use obrigatoriamente listas com traço "- ") detalhando pistas, locais importantes, NPCs cruciais ou facções.
-        ## Reviravoltas & Perigos
-        3 desfechos inesperados, segredos ou complicações perigosas. Use listas com traço.`;
+A resposta DEVE usar exatamente os títulos abaixo com "## ":
+## Título
+Um título memorável e evocativo.
+## Premissa
+2 a 3 parágrafos imersivos detalhando a atmosfera, o conflito central e o que está em jogo.
+## Ponto de Partida
+Como os personagens dos jogadores são inseridos fisicamente nesta situação.
+## Elementos-Chave
+Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
+## Reviravoltas & Perigos
+3 desfechos inesperados ou complicações. Use listas com "- ".`;
 
         try {
-          const text = await callAI(prompt, 3000);
+          const text = await callAI(prompt);
           setResultado(text);
-
-          if (tObj) tObj.uses += 1;
-          if (cObj) cObj.uses += 1;
-          selTags.forEach(x => x.uses += 1);
-
-          setTemas([...temas]); lsSet(KEYS.temas, temas);
-          setCenarios([...cenarios]); lsSet(KEYS.cenarios, cenarios);
-          setTags([...tags]); lsSet(KEYS.tags, tags);
-
-          const novoItem = { id: Date.now().toString(), date: new Date().toLocaleDateString('pt-BR'), tema: tObj?.label, cenario: cObj?.label, text };
-          const novoHist = [novoItem, ...historico].slice(0, 20);
-          setHistorico(novoHist); lsSet(KEYS.historico, novoHist);
-
+          const nt = temas.map(x=>x.id===tema?{...x,uses:x.uses+1}:x);
+          const nc = cenarios.map(x=>x.id===cenario?{...x,uses:x.uses+1}:x);
+          const ntg = tags.map(x=>activeTags.includes(x.id)?{...x,uses:x.uses+1}:x);
+          updateTemas(nt); updateCenarios(nc); updateTags(ntg);
+          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:tObj?.label, cenario:cObj?.label, provider, text };
+          const nh = [entry,...historico].slice(0,30);
+          updateHistorico(nh);
           suggestNewItems(text);
-        } catch (err) {
-          setResultado(`## Erro de Conjuração\nNão foi possível obter resposta do Oráculo.\n\nDetalhes: **${err.message}**`);
+        } catch(e) {
+          setResultado(`## Erro de Conjuração\n**${e.message}**`);
         }
         setLoading(false);
       };
 
       const processRawIdea = async () => {
         if (!ideiaCrua.trim()) return;
-        setLoading(true);
-        setResultado(null);
-        setSugestoes(null);
-
-        const prompt = `Você é um mestre experiente. Recebi estas anotações de ideias esparsas, fragmentos ou parágrafos soltos de uma aventura:
-        "${ideiaCrua}"
-
-        Transforme isso em uma semente estruturada completa e rica de RPG agnóstica de sistema. Organize obrigatoriamente sob os títulos abaixo usando "## ":
-        ## Título
-        ## Premissa
-        ## Ponto de Partida
-        ## Elementos-Chave
-        ## Reviravoltas & Perigos`;
-
+        setLoading(true); setResultado(null); setSugestoes(null);
+        const prompt = `Você é um mestre experiente. Recebi estas anotações de ideias esparsas:\n"${ideiaCrua}"\n\nTransforme em uma semente estruturada de RPG agnóstica. Use "## " para os títulos:\n## Título\n## Premissa\n## Ponto de Partida\n## Elementos-Chave\n## Reviravoltas & Perigos`;
         try {
-          const text = await callAI(prompt, 3000);
+          const text = await callAI(prompt);
           setResultado(text);
-
-          const novoItem = { id: Date.now().toString(), date: new Date().toLocaleDateString('pt-BR'), tema: "Ideia Livre", cenario: "Processada", text };
-          const novoHist = [novoItem, ...historico].slice(0, 20);
-          setHistorico(novoHist); lsSet(KEYS.historico, novoHist);
-
+          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:"Ideia Livre", cenario:"Processada", provider, text };
+          const nh = [entry,...historico].slice(0,30);
+          updateHistorico(nh);
           suggestNewItems(text);
-          setTab("gerar"); // Retorna para visualização da seed gerada
-        } catch (err) {
-          setResultado(`## Erro no Processamento\nNão consegui lapidar essa ideia.\n\nDetalhes: **${err.message}**`);
           setTab("gerar");
+        } catch(e) {
+          setResultado(`## Erro\n**${e.message}**`); setTab("gerar");
         }
         setLoading(false);
       };
 
-      const suggestNewItems = async (textText) => {
-        const prompt = `Analise a semente de aventura RPG gerada abaixo e extraia ideias abstratas dela. Retorne exclusivamente um JSON válido no formato abaixo:
-        {
-          "temas": ["Nome Curto de Tema Inédito"],
-          "cenarios": ["Nome Curto de Cenário Inédito"],
-          "tags": ["tag nova 1", "tag nova 2", "tag nova 3"]
-        }
-        Aventura:
-        ${textText.substring(0, 1500)}`;
-
+      const suggestNewItems = async (txt) => {
+        const prompt = `Analise a semente de aventura RPG abaixo e extraia ideias abstratas. Retorne APENAS JSON válido:\n{"temas":["Nome Curto"],"cenarios":["Nome Curto"],"tags":["tag nova"]}\nAventura:\n${txt.substring(0,1200)}`;
         try {
-          const jsonRes = await callAI(prompt, 800);
-          const clean = jsonRes.replace(/```json|
-```/g, "").trim();
-          const parsed = JSON.parse(clean);
+          const res = await callAI(prompt, 600);
+          const parsed = JSON.parse(res.replace(/```json|```/g,"").trim());
           setSugestoes(parsed);
-        } catch(e) {
-          console.log("Falha ao computar ingredientes derivados.", e);
-        }
+        } catch {}
       };
 
       const ingestSuggestion = (type, label) => {
-        const cleanLabel = label.trim().toLowerCase();
-        const newId = cleanLabel.replace(/[^a-z0-9]+/g, '-');
-
-        if (type === 'temas') {
-          if (temas.some(x => x.id === newId)) return;
-          const updated = [...temas, { id: newId, label: label, icon: "✨", uses: 0, isNew: true }];
-          setTemas(updated); lsSet(KEYS.temas, updated);
-        } else if (type === 'cenarios') {
-          if (cenarios.some(x => x.id === newId)) return;
-          const updated = [...cenarios, { id: newId, label: label, icon: "🗺️", uses: 0, isNew: true }];
-          setCenarios(updated); lsSet(KEYS.cenarios, updated);
-        } else if (type === 'tags') {
-          if (tags.some(x => x.id === newId)) return;
-          const updated = [...tags, { id: newId, label: cleanLabel, uses: 0, isNew: true }];
-          setTags(updated); lsSet(KEYS.tags, updated);
+        const newId = label.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
+        if (type==='temas' && !temas.some(x=>x.id===newId)) {
+          updateTemas([...temas, {id:newId,label,icon:"✨",uses:0}]);
+        } else if (type==='cenarios' && !cenarios.some(x=>x.id===newId)) {
+          updateCenarios([...cenarios, {id:newId,label,icon:"🗺️",uses:0}]);
+        } else if (type==='tags' && !tags.some(x=>x.id===newId)) {
+          updateTags([...tags, {id:newId,label:label.toLowerCase(),uses:0}]);
         }
-
-        setJustUnlocked({ type, label });
-        setSugestoes(prev => ({ ...prev, [type]: prev[type].filter(x => x !== label) }));
+        setJustUnlocked({type,label});
+        setSugestoes(p => ({...p,[type]:p[type].filter(x=>x!==label)}));
       };
 
       const resetAll = () => {
-        if(confirm("Deseja apagar todas as customizações do Grimório?")) {
-          localStorage.clear();
-          setTemas(DEFAULT_TEMAS); setCenarios(DEFAULT_CENARIOS); setTags(DEFAULT_TAGS); setHistorico([]);
-          setTema(null); setCenario(null); setEscopo(null); setActiveTags([]); setResultado(null); setSugestoes(null);
-          setApiKeys({ anthropic: "", deepseek: "" });
-        }
+        if (!confirm("Deseja apagar todas as customizações do Grimório?\n(As chaves de API não serão apagadas)")) return;
+        updateTemas(DEFAULT_TEMAS); updateCenarios(DEFAULT_CENARIOS);
+        updateTags(DEFAULT_TAGS); updateHistorico([]);
+        setTema(null); setCenario(null); setEscopo(null); setActiveTags([]);
+        setResultado(null); setSugestoes(null);
       };
 
-      const renderContentWithSpacers = (text) => {
+      // ── RENDER MARKDOWN ───────────────────────────────────────────────────────
+      const renderContent = (text) => {
         if (!text) return null;
-        const lines = text.split('\n');
-        return lines.map((line, i) => {
-          if (line.startsWith('## ')) {
-            return <span key={i} style={{fontFamily:'Cinzel Decorative, serif', fontSize:'1.15rem', letterSpacing:'.08em', color:'var(--gold)', textTransform:'uppercase', display:'block', margin:'3.5rem 0 1.2rem', fontWeight:'700', borderBottom:'1px solid rgba(200,151,58,0.2)', paddingBottom:'0.5rem'}}>{line.replace('## ', '')}</span>;
-          }
-          if (line.startsWith('### ')) {
-            return <span key={i} style={{fontFamily:'Cinzel Decorative, serif', fontSize:'0.95rem', letterSpacing:'.06em', color:'var(--gold-dim)', display:'block', margin:'2rem 0 0.8rem', fontWeight:'700'}}>{line.replace('### ', '')}</span>;
-          }
+        return text.split('\n').map((line, i) => {
+          if (line.startsWith('## ')) return <span key={i} style={{fontFamily:"'Cinzel Decorative',serif",fontSize:"1.1rem",letterSpacing:".08em",color:"var(--gold)",textTransform:"uppercase",display:"block",margin:"3rem 0 1rem",fontWeight:"700",borderBottom:"1px solid rgba(200,151,58,0.2)",paddingBottom:".5rem"}}>{line.replace('## ','')}</span>;
           if (line.startsWith('- ')) {
-            let content = line.replace('- ', '');
-            const parts = content.split(/\*\frac_content_fetcher:fetch*(.*?)\*\*/g);
-            return (
-              <div key={i} className="grimorio-bullet-container">
-                <span className="grimorio-bullet-marker">◆</span>
-                <span className="grimorio-bullet-text">
-                  {parts.map((part, j) => j % 2 === 1 ? <strong key={j} style={{color:'var(--gold-bright)', fontWeight:'600'}}>{part}</strong> : part)}
-                </span>
-              </div>
-            );
+            const parts = line.replace('- ','').split(/\*\*(.*?)\*\*/g);
+            return <div key={i} className="grimorio-bullet-container"><span className="grimorio-bullet-marker">◆</span><span className="grimorio-bullet-text">{parts.map((p,j)=>j%2===1?<strong key={j} style={{color:"var(--gold-bright)"}}>{p}</strong>:p)}</span></div>;
           }
-          
-          if (line.trim() === '') return <br key={i} />;
-          
+          if (line.trim()==='') return <br key={i}/>;
           const parts = line.split(/\*\*(.*?)\*\*/g);
-          return (
-            <span key={i} style={{display:'block', marginBottom:'1.6rem', textAlign:'justify'}}>
-              {parts.map((part, j) => j % 2 === 1 ? <strong key={j} style={{color:'var(--gold-bright)', fontWeight:'600'}}>{part}</strong> : part)}
-            </span>
-          );
+          return <span key={i} style={{display:"block",marginBottom:"1.4rem",textAlign:"justify"}}>{parts.map((p,j)=>j%2===1?<strong key={j} style={{color:"var(--gold-bright)"}}>{p}</strong>:p)}</span>;
         });
       };
 
-      const hasSelections = tema || cenario || activeTags.length > 0;
-      const tObjSelected = temas.find(x => x.id === tema);
-      const cObjSelected = cenarios.find(x => x.id === cenario);
+      const tObjSel = temas.find(x=>x.id===tema);
+      const cObjSel = cenarios.find(x=>x.id===cenario);
+      const hasSel = tema||cenario||activeTags.length>0;
+
+      const syncLabel = { local:"Apenas local", syncing:"Sincronizando…", synced:syncMsg||"Salvo", error:syncMsg||"Erro" };
 
       return (
-        <div className="app">
-          <div className="container">
-            <header className="header">
-              <h1>Grimório de Seeds</h1>
-              <p className="subtitle">Forjador de Crônicas & Sementes de Aventura Agnósticas</p>
-            </header>
+        <>
+          {(showSettings || isFirstRun) && (
+            <SettingsModal cfg={cfg} onSave={handleSaveCfg} onClose={()=>setShowSettings(false)} isFirstRun={isFirstRun}/>
+          )}
 
-            <div className="api-selector" style={{ marginBottom: "0.5rem" }}>
-              <label className="api-label">
-                <input type="radio" name="provider" checked={apiProvider === "deepseek"} onChange={() => setApiProvider("deepseek")} /> Oráculo DeepSeek (Chat)
-              </label>
-              <label className="api-label">
-                <input type="radio" name="provider" checked={apiProvider === "anthropic"} onChange={() => setApiProvider("anthropic")} /> Oráculo Anthropic (Claude)
-              </label>
-            </div>
+          <div className="app">
+            <div className="container">
+              <header className="header">
+                <h1>Grimório de Seeds</h1>
+                <p className="subtitle">Forjador de Crônicas & Sementes de Aventura Agnósticas</p>
+              </header>
 
-            
-            <div className="section" style={{ background: "rgba(200,151,58,0.05)", padding: "1rem 1.5rem", marginBottom: "1.5rem" }}>
-              <div className="section-title" style={{ marginBottom: "0.8rem" }}>⚙ Configuração do Oráculo</div>
-              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: "0.9rem", color: "var(--parchment-dim)" }}>
-                  Chave API ({apiProvider === 'deepseek' ? 'DeepSeek' : 'Anthropic'}):
-                </span>
-                <input 
-                  type="password" 
-                  placeholder="Cole sua chave sk-... aqui"
-                  value={apiKeys[apiProvider]}
-                  onChange={(e) => saveKey(apiProvider, e.target.value)}
-                  className="idea-textarea"
-                  style={{ flex: 1, minHeight: "35px", padding: "0.5rem 1rem", fontSize: "0.9rem", margin: 0 }}
-                />
-              </div>
-              <p style={{ fontSize: "0.75rem", color: "#7a6a50", marginTop: "0.5rem", fontStyle: "italic" }}>
-                Sua chave fica salva apenas no seu navegador localmente. Nenhuma informação é enviada a terceiros além da própria API.
-              </p>
-            </div>
-
-            <div className="nav-tabs">
-              <button className={`nav-tab ${tab === 'gerar' ? 'active' : ''}`} onClick={() => setTab("gerar")}>Forjar Seed</button>
-              <button className={`nav-tab ${tab === 'ideias' ? 'active' : ''}`} onClick={() => setTab("ideias")}>Inserir Ideias</button>
-              <button className={`nav-tab ${tab === 'historico' ? 'active' : ''}`} onClick={() => setTab("historico")}>Histórico <span className="badge-count">{historico.length}</span></button>
-              <button className={`nav-tab ${tab === 'biblioteca' ? 'active' : ''}`} onClick={() => setTab("biblioteca")}>Grimório Ativo</button>
-            </div>
-
-            {tab === "gerar" && (
-              <div style={{display:"flex", flexDirection:"column", gap:"1.4rem"}}>
-                <div className="section">
-                  <div className="section-title">⚡ Escopo de Sessão</div>
-                  <div className="escopo-grid">
-                    {ESCOPOS.map(e => (
-                      <div key={e.id} className={`escopo-card ${escopo === e.id ? 'active' : ''}`} onClick={() => setEscopo(escopo === e.id ? null : e.id)}>
-                        <div className="escopo-icon">{e.icon}</div>
-                        <span className="escopo-label">{e.label}</span>
-                        <span className="escopo-desc">{e.desc}</span>
-                      </div>
-                    ))}
-                  </div>
+              {/* TOPBAR */}
+              <div className="topbar">
+                <span style={{fontFamily:"'Cinzel Decorative',serif",fontSize:".58rem",letterSpacing:".15em",color:"var(--gold)",textTransform:"uppercase",whiteSpace:"nowrap"}}>Oráculo</span>
+                <div className="topbar-provider">
+                  {[["deepseek","◈ DeepSeek"],["anthropic","✦ Claude"]].map(([id,lbl])=>{
+                    const hasKey = id==="deepseek" ? (cfg.deepseekKey?.length>5) : (cfg.anthropicKey?.length>5);
+                    return (
+                      <button key={id} className={`prov-btn ${provider===id?"active":""}`}
+                        disabled={!hasKey}
+                        onClick={()=>{ setProvider(id); saveCfg({...cfg,provider:id}); }}
+                        title={hasKey?"":"Configure a chave nas ⚙ Configurações"}>
+                        {lbl}{!hasKey&&<span style={{fontSize:".65rem",opacity:.5}}> (sem chave)</span>}
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div className="section">
-                  <div className="section-title">⚔ Arquetipo de Tema</div>
-                  <div className="chip-grid">
-                    {temas.map(t => (
-                      <div key={t.id} className={`chip ${tema === t.id ? 'active' : ''} ${t.uses > 0 ? 'unlocked' : ''}`} onClick={() => setTema(tema === t.id ? null : t.id)}>
-                        {t.uses > 0 && <span className="unlock-dot"></span>}
-                        {t.icon} {t.label} {t.uses > 0 && <span className="use-count">{t.uses}x</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="section">
-                  <div className="section-title">🗺 Cenário de Fundo</div>
-                  <div className="chip-grid">
-                    {cenarios.map(c => (
-                      <div key={c.id} className={`chip ${cenario === c.id ? 'active' : ''} ${c.uses > 0 ? 'unlocked' : ''}`} onClick={() => setCenario(cenario === c.id ? null : c.id)}>
-                        {c.uses > 0 && <span className="unlock-dot"></span>}
-                        {c.icon} {c.label} {c.uses > 0 && <span className="use-count">{c.uses}x</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="section">
-                  <div className="section-title">🔮 Tags Elementares</div>
-                  <div className="tag-grid">
-                    {tags.map(t => (
-                      <div key={t.id} className={`tag ${activeTags.includes(t.id) ? 'active' : ''} ${t.uses > 0 ? 'unlocked' : ''}`} onClick={() => setActiveTags(p => p.includes(t.id) ? p.filter(x=>x!==t.id) : [...p, t.id])}>
-                        #{t.label} {t.uses > 0 && <span style={{fontSize:".62rem", opacity:.5}}>({t.uses})</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="idea-area">
-                  <div className="section-title">✍ Diretrizes Específicas & Foco (Opcional)</div>
-                  <textarea 
-                    className="idea-textarea" 
-                    placeholder="Ex: Uma aventura investigativa com foco em perícias, ideal para adaptar no Pathfinder 2e ou GURPS..."
-                    value={dica}
-                    onChange={(e) => setDica(e.target.value)}
-                  />
-                  {hasSelections && (
-                    <div className="idea-actions">
-                      <span className="idea-hint" style={{margin:0}}>Inserir na diretriz:</span>
-                      {tObjSelected && (
-                        <button className="idea-quick-btn" onClick={() => setDica(p => p + (p ? " " : "") + `Foque fortemente no tema de ${tObjSelected.label}.`)}>
-                          + {tObjSelected.label}
-                        </button>
-                      )}
-                      {cObjSelected && (
-                        <button className="idea-quick-btn" onClick={() => setDica(p => p + (p ? " " : "") + `A ambientação principal deve ser ${cObjSelected.label}.`)}>
-                          + {cObjSelected.label}
-                        </button>
-                      )}
-                      {activeTags.map(id => {
-                        const tg = tags.find(x => x.id === id);
-                        return tg ? (
-                          <button key={id} className="idea-quick-btn" onClick={() => setDica(p => p + (p ? " " : "") + `Traga fortes elementos de ${tg.label}.`)}>
-                            + #{tg.label}
-                          </button>
-                        ) : null;
-                      })}
-                      {dica && (
-                        <button className="idea-quick-btn" style={{marginLeft:"auto", color:"#c06040", borderColor:"rgba(192,96,64,0.3)"}} onClick={() => setDica("")}>
-                          Limpar
-                        </button>
-                      )}
-                    </div>
+                <div className="topbar-sep"/>
+                <div className="sync-status">
+                  <span className={`sync-dot ${syncStatus}`}/>
+                  <span style={{color:"#7a6a50"}}>{syncLabel[syncStatus]}</span>
+                  {syncStatus==="error" && cfg.githubToken && (
+                    <button className="btn-settings" onClick={syncFromGist} style={{fontSize:".72rem",padding:".2rem .5rem"}}>↺ Tentar</button>
                   )}
                 </div>
+                <button className="btn-settings" onClick={()=>setShowSettings(true)} title="Configurações">⚙</button>
+              </div>
 
-                <div className="generate-area">
-                  <button className="btn btn-primary" onClick={generateSeed} disabled={loading}>
-                    {loading ? "CONJURANDO RUNAS..." : "✦ FORJAR SEMENTE DE AVENTURA ✦"}
-                  </button>
-                </div>
+              <div className="nav-tabs">
+                <button className={`nav-tab ${tab==='gerar'?'active':''}`} onClick={()=>setTab("gerar")}>Forjar Seed</button>
+                <button className={`nav-tab ${tab==='ideias'?'active':''}`} onClick={()=>setTab("ideias")}>Inserir Ideias</button>
+                <button className={`nav-tab ${tab==='historico'?'active':''}`} onClick={()=>setTab("historico")}>Histórico <span className="badge-count">{historico.length}</span></button>
+                <button className={`nav-tab ${tab==='biblioteca'?'active':''}`} onClick={()=>setTab("biblioteca")}>Grimório</button>
+              </div>
 
-                {justUnlocked && (
-                  <div className="unlock-notice">
-                    <span>✨</span>
-                    <div>Elemento incorporado com sucesso ao Grimório: <strong>{justUnlocked.label}</strong>.</div>
-                  </div>
-                )}
-
-                {resultado && (
-                  <div className="result-box">
-                    <div className="result-header">
-                      <span className="result-label">Pergaminho Gerado</span>
-                      <div className="result-badges">
-                        {tObjSelected && <span className="badge">{tObjSelected.label}</span>}
-                        {cObjSelected && <span className="badge">{cObjSelected.label}</span>}
-                      </div>
-                    </div>
-                    <div className="result-content">
-                      {renderContentWithSpacers(resultado)}
-                    </div>
-
-                    {sugestoes && (sugestoes.temas?.length > 0 || sugestoes.cenarios?.length > 0 || sugestoes.tags?.length > 0) && (
-                      <div className="ingested-preview">
-                        <div className="ingested-title">✨ Elementos Descobertos nesta história</div>
-                        <div className="ingested-items">
-                          {sugestoes.temas?.map(t => (
-                            <button key={t} className="btn btn-ghost btn-ingest" onClick={() => ingestSuggestion('temas', t)}><span className="type-badge">[Tema]</span> + {t}</button>
-                          ))}
-                          {sugestoes.cenarios?.map(c => (
-                            <button key={c} className="btn btn-ghost btn-ingest" onClick={() => ingestSuggestion('cenarios', c)}><span className="type-badge">[Cenário]</span> + {c}</button>
-                          ))}
-                          {sugestoes.tags?.map(tg => (
-                            <button key={tg} className="btn btn-ghost btn-ingest" onClick={() => ingestSuggestion('tags', tg)}><span className="type-badge">[Tag]</span> + #{tg}</button>
-                          ))}
+              {/* ── TAB GERAR ── */}
+              {tab==="gerar" && (
+                <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
+                  <div className="section">
+                    <div className="section-title">⚡ Escopo de Sessão</div>
+                    <div className="escopo-grid">
+                      {ESCOPOS.map(e=>(
+                        <div key={e.id} className={`escopo-card ${escopo===e.id?'active':''}`} onClick={()=>setEscopo(escopo===e.id?null:e.id)}>
+                          <div className="escopo-icon">{e.icon}</div>
+                          <span className="escopo-label">{e.label}</span>
+                          <span className="escopo-desc">{e.desc}</span>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="section">
+                    <div className="section-title">⚔ Arquetipo de Tema</div>
+                    <div className="chip-grid">
+                      {temas.map(t=>(
+                        <div key={t.id} className={`chip ${tema===t.id?'active':''} ${t.uses>0?'unlocked':''}`} onClick={()=>setTema(tema===t.id?null:t.id)}>
+                          {t.uses>0 && <span className="unlock-dot"/>}
+                          {t.icon} {t.label} {t.uses>0 && <span className="use-count">{t.uses}x</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="section">
+                    <div className="section-title">🗺 Cenário de Fundo</div>
+                    <div className="chip-grid">
+                      {cenarios.map(c=>(
+                        <div key={c.id} className={`chip ${cenario===c.id?'active':''} ${c.uses>0?'unlocked':''}`} onClick={()=>setCenario(cenario===c.id?null:c.id)}>
+                          {c.uses>0 && <span className="unlock-dot"/>}
+                          {c.icon} {c.label} {c.uses>0 && <span className="use-count">{c.uses}x</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="section">
+                    <div className="section-title">🔮 Tags Elementares</div>
+                    <div className="tag-grid">
+                      {tags.map(t=>(
+                        <div key={t.id} className={`tag ${activeTags.includes(t.id)?'active':''} ${t.uses>0?'unlocked':''}`} onClick={()=>setActiveTags(p=>p.includes(t.id)?p.filter(x=>x!==t.id):[...p,t.id])}>
+                          #{t.label} {t.uses>0 && <span style={{fontSize:".62rem",opacity:.5}}>({t.uses})</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="idea-area">
+                    <div className="section-title">✍ Diretrizes Específicas (Opcional)</div>
+                    <textarea className="idea-textarea" placeholder="Ex: Uma aventura investigativa para adaptar no Pathfinder 2e, focada em perícias..." value={dica} onChange={e=>setDica(e.target.value)}/>
+                    {hasSel && (
+                      <div className="idea-actions">
+                        <span className="idea-hint" style={{margin:0}}>Inserir:</span>
+                        {tObjSel && <button className="idea-quick-btn" onClick={()=>setDica(p=>p+(p?" ":"")+`Foque fortemente no tema de ${tObjSel.label}.`)}>+ {tObjSel.label}</button>}
+                        {cObjSel && <button className="idea-quick-btn" onClick={()=>setDica(p=>p+(p?" ":"")+`A ambientação principal deve ser ${cObjSel.label}.`)}>+ {cObjSel.label}</button>}
+                        {activeTags.map(id=>{const tg=tags.find(x=>x.id===id);return tg?(<button key={id} className="idea-quick-btn" onClick={()=>setDica(p=>p+(p?" ":"")+`Traga elementos de ${tg.label}.`)}>+ #{tg.label}</button>):null;})}
+                        {dica && <button className="idea-quick-btn" style={{marginLeft:"auto",color:"var(--red)",borderColor:"rgba(192,96,64,.3)"}} onClick={()=>setDica("")}>Limpar</button>}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-            )}
 
-            {tab === "ideias" && (
-              <div style={{display:"flex", flexDirection:"column", gap:"1.4rem"}}>
+                  <div className="generate-area">
+                    <button className={`btn btn-primary ${loading?"loading":""}`} onClick={generateSeed} disabled={loading||!providerOk}>
+                      {loading?"CONJURANDO RUNAS...":providerOk?"✦ FORJAR SEMENTE DE AVENTURA ✦":"⚙ Configure a chave de API primeiro"}
+                    </button>
+                  </div>
+
+                  {justUnlocked && (
+                    <div className="unlock-notice">✨ <div>Elemento incorporado ao Grimório: <strong>{justUnlocked.label}</strong></div></div>
+                  )}
+
+                  {resultado && (
+                    <div className="result-box">
+                      <div className="result-header">
+                        <span className="result-label">Pergaminho Gerado</span>
+                        <div className="result-badges">
+                          {tObjSel && <span className="badge">{tObjSel.label}</span>}
+                          {cObjSel && <span className="badge">{cObjSel.label}</span>}
+                          <span className="badge" style={{opacity:.6}}>{provider==="deepseek"?"DeepSeek":"Claude"}</span>
+                        </div>
+                      </div>
+                      <div className="result-content">{renderContent(resultado)}</div>
+
+                      {sugestoes && (sugestoes.temas?.length>0||sugestoes.cenarios?.length>0||sugestoes.tags?.length>0) && (
+                        <div className="ingested-preview">
+                          <div className="ingested-title">✨ Elementos Descobertos nesta história</div>
+                          <div className="ingested-items">
+                            {sugestoes.temas?.map(t=><button key={t} className="btn btn-ingest" onClick={()=>ingestSuggestion('temas',t)}><span style={{opacity:.6,fontSize:".72rem"}}>[Tema]</span> + {t}</button>)}
+                            {sugestoes.cenarios?.map(c=><button key={c} className="btn btn-ingest" onClick={()=>ingestSuggestion('cenarios',c)}><span style={{opacity:.6,fontSize:".72rem"}}>[Cenário]</span> + {c}</button>)}
+                            {sugestoes.tags?.map(tg=><button key={tg} className="btn btn-ingest" onClick={()=>ingestSuggestion('tags',tg)}><span style={{opacity:.6,fontSize:".72rem"}}>[Tag]</span> + #{tg}</button>)}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="result-actions">
+                        <button className="btn btn-ghost" onClick={()=>navigator.clipboard.writeText(resultado)}>⎘ Copiar</button>
+                        <button className="btn btn-ghost" onClick={generateSeed} disabled={loading}>↺ Regerar</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── TAB IDEIAS ── */}
+              {tab==="ideias" && (
                 <div className="idea-area">
                   <div className="section-title">💡 Alquimia de Ideias Livres</div>
-                  <p className="idea-hint" style={{marginBottom:"1rem", color:"var(--parchment-dim)"}}>
-                    Cole parágrafos esparsos, insights de campanhas antigos ou rascunhos crus. O oráculo processará, estruturará uma seed de aventura completa e extrairá novos elementos para alimentar as suas futuras criações.
+                  <p style={{fontSize:".93rem",color:"var(--parchment-dim)",fontStyle:"italic",marginBottom:"1rem",lineHeight:1.65}}>
+                    Cole parágrafos esparsos, insights de campanhas antigas ou rascunhos crus. O oráculo estruturará uma seed completa e extrairá novos elementos para alimentar suas futuras criações.
                   </p>
-                  <textarea 
-                    className="idea-textarea" 
-                    placeholder="Ex: Quero algo inspirado no sistema de facções de Cyberpunk Red ou na letalidade do GURPS, focado em uma colônia prisional submersa onde a escassez de água gerou um culto fanático..."
-                    value={ideiaCrua}
-                    onChange={(e) => setIdeiaCrua(e.target.value)}
-                    style={{minHeight:"200px"}}
-                  />
+                  <textarea className="idea-textarea" style={{minHeight:"200px"}}
+                    placeholder="Ex: Uma colônia prisional submersa onde a escassez de água gerou um culto fanático..."
+                    value={ideiaCrua} onChange={e=>setIdeiaCrua(e.target.value)}/>
                   <div className="generate-area" style={{marginTop:"1.5rem"}}>
-                    <button className="btn btn-primary" onClick={processRawIdea} disabled={loading || !ideiaCrua.trim()}>
-                      {loading ? "LAPIDANDO ESSÊNCIA..." : "✦ PROCESSAR E INCORPORAR IDEIA ✦"}
+                    <button className={`btn btn-primary ${loading?"loading":""}`} onClick={processRawIdea} disabled={loading||!ideiaCrua.trim()||!providerOk}>
+                      {loading?"LAPIDANDO ESSÊNCIA...":"✦ PROCESSAR E INCORPORAR IDEIA ✦"}
                     </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {tab === "historico" && (
-              <div className="history-list">
-                {historico.length === 0 ? (
-                  <p className="empty-state">Nenhum pergaminho guardado nesta sessão ainda.</p>
-                ) : (
-                  historico.map(h => (
-                    <div key={h.id} className="history-item" onClick={() => { setResultado(h.text); setTab("gerar"); setSugestoes(null); }}>
-                      <div className="history-meta">
-                        {h.tema && <span className="badge">{h.tema}</span>}
-                        {h.cenario && <span className="badge">{h.cenario}</span>}
+              {/* ── TAB HISTÓRICO ── */}
+              {tab==="historico" && (
+                <div>
+                  <div style={{display:"flex",justifyContent:"flex-end",marginBottom:".8rem",gap:".5rem"}}>
+                    {cfg.githubToken && cfg.gistId && (
+                      <button className="btn btn-ghost" onClick={syncFromGist} disabled={syncStatus==="syncing"}>
+                        {syncStatus==="syncing"?"↺ Sincronizando…":"↺ Sincronizar com Gist"}
+                      </button>
+                    )}
+                  </div>
+                  {historico.length===0 ? (
+                    <p className="empty-state">Nenhum pergaminho guardado ainda.</p>
+                  ) : (
+                    <div className="history-list">
+                      {historico.map(h=>(
+                        <div key={h.id} className="history-item" onClick={()=>{setResultado(h.text);setTab("gerar");setSugestoes(null);}}>
+                          <div className="history-meta">
+                            {h.tema && <span className="badge">{h.tema}</span>}
+                            {h.cenario && <span className="badge">{h.cenario}</span>}
+                            {h.provider && <span className="badge" style={{opacity:.6}}>{h.provider}</span>}
+                          </div>
+                          <div className="history-preview">{h.text.split('\n').find(x=>x.startsWith('## '))?.replace('## ','')||"Aventura Sem Título"}</div>
+                          <div className="history-date">Forjado em: {h.date}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── TAB BIBLIOTECA ── */}
+              {tab==="biblioteca" && (
+                <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
+                  <div className="stats-grid">
+                    <div className="stat-card"><div className="stat-num">{temas.length}</div><div className="stat-label">Temas Conhecidos</div></div>
+                    <div className="stat-card"><div className="stat-num">{cenarios.length}</div><div className="stat-label">Cenários Catalogados</div></div>
+                    <div className="stat-card"><div className="stat-num">{tags.length}</div><div className="stat-label">Tags Coletadas</div></div>
+                    <div className="stat-card"><div className="stat-num">{historico.length}</div><div className="stat-label">Seeds Forjadas</div></div>
+                  </div>
+                  <div className="section">
+                    <div className="section-title">📊 Temas mais Conjurados</div>
+                    {[...temas].sort((a,b)=>b.uses-a.uses).filter(t=>t.uses>0).slice(0,5).map(t=>(
+                      <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:".4rem 0",borderBottom:"1px solid rgba(200,151,58,.15)",fontSize:".93rem"}}>
+                        <span>{t.icon} {t.label}</span><span style={{color:"var(--gold)"}}>{t.uses}×</span>
                       </div>
-                      <div className="history-preview">{h.text.split('\n').find(x => x.startsWith('## '))?.replace('## ', '') || "Aventura Sem Título"}</div>
-                      <div className="history-date">Forjado em: {h.date}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {tab === "biblioteca" && (
-              <div style={{display:"flex", flexDirection:"column", gap:"1.4rem"}}>
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-num">{temas.length}</div>
-                    <div className="stat-label">Temas Conhecidos</div>
+                    ))}
+                    {!temas.some(t=>t.uses>0) && <p className="empty-state" style={{padding:"1rem 0"}}>Nenhum tema usado ainda.</p>}
                   </div>
-                  <div className="stat-card">
-                    <div className="stat-num">{cenarios.length}</div>
-                    <div className="stat-label">Cenários Catalogados</div>
+                  <div className="section">
+                    <div className="section-title">🏷 Tags de Maior Afinidade</div>
+                    {[...tags].sort((a,b)=>b.uses-a.uses).filter(t=>t.uses>0).slice(0,8).map(t=>(
+                      <div key={t.id} style={{display:"flex",justifyContent:"space-between",padding:".4rem 0",borderBottom:"1px solid rgba(200,151,58,.15)",fontSize:".93rem"}}>
+                        <span>#{t.label}</span><span style={{color:"var(--gold)"}}>{t.uses}×</span>
+                      </div>
+                    ))}
+                    {!tags.some(t=>t.uses>0) && <p className="empty-state" style={{padding:"1rem 0"}}>Nenhuma tag usada ainda.</p>}
                   </div>
-                  <div className="stat-card">
-                    <div className="stat-num">{tags.length}</div>
-                    <div className="stat-label">Tags Coletadas</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-num">{temas.reduce((a,b)=>a+b.uses,0) + tags.reduce((a,b)=>a+b.uses,0)}</div>
-                    <div className="stat-label">Uso Total de Runas</div>
+                  <div style={{textAlign:"center",paddingTop:".8rem"}}>
+                    <button className="btn btn-danger" onClick={resetAll}>⚠ Limpar Registro das Runas</button>
                   </div>
                 </div>
+              )}
 
-                <div className="section">
-                  <div className="section-title">📊 Temas mais Conjurados</div>
-                  {[...temas].sort((a,b)=>b.uses-a.uses).filter(t=>t.uses>0).slice(0,5).map(t=>(
-                    <div key={t.id} style={{display:"flex", justifyContent:"space-between", padding:".4rem 0", borderBottom:"1px solid rgba(200,151,58,.15)", fontSize:".93rem"}}>
-                      <span>{t.icon} {t.label}</span><span style={{color:"var(--gold)"}}>{t.uses}×</span>
-                    </div>
-                  ))}
-                  {!temas.some(t=>t.uses>0) && <p className="empty-state" style={{padding:"1rem 0"}}>Nenhum tema usado ainda.</p>}
-                </div>
-
-                <div className="section">
-                  <div className="section-title">🏷 Tags de Maior Afinidade</div>
-                  {[...tags].sort((a,b)=>b.uses-a.uses).filter(t=>t.uses>0).slice(0,8).map(t=>(
-                    <div key={t.id} style={{display:"flex", justifyContent:"space-between", padding:".4rem 0", borderBottom:"1px solid rgba(200,151,58,.15)", fontSize:".93rem"}}>
-                      <span>#{t.label}</span><span style={{color:"var(--gold)"}}>{t.uses}×</span>
-                    </div>
-                  ))}
-                  {!tags.some(t=>t.uses>0) && <p className="empty-state" style={{padding:"1rem 0"}}>Nenhuma tag usada ainda.</p>}
-                </div>
-
-                <div style={{textAlign:"center", paddingTop:".8rem"}}>
-                  <button className="btn btn-ghost" onClick={resetAll} style={{color:"#c06040", borderColor:"rgba(192,96,64,.3)"}}>
-                    ⚠ Limpar Registro das Runas
-                  </button>
-                </div>
-              </div>
-            )}
-
+            </div>
           </div>
-        </div>
+        </>
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App/>);
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
 </body>
 </html>
