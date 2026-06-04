@@ -5,11 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Grimório de Seeds — RPG</title>
 
-  <script>
-    window.ANTHROPIC_API_KEY = "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";
-    window.DEEPSEEK_API_KEY = "sk-b64d83d13d4a4f5c8967c7ed70801197";
-  </script>
-
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -206,7 +201,7 @@
       { id: "campanha", label: "Seed de Campanha", desc: "Fundação para uma crônica longa", icon: "📚" }
     ];
 
-    const KEYS = { temas: "rpg-grimorio-temas", cenarios: "rpg-grimorio-cenarios", tags: "rpg-grimorio-tags", historico: "rpg-grimorio-historico" };
+    const KEYS = { temas: "rpg-grimorio-temas", cenarios: "rpg-grimorio-cenarios", tags: "rpg-grimorio-tags", historico: "rpg-grimorio-historico", apiKeys: "rpg-grimorio-apikeys" };
 
     function lsGet(key, fallback) {
       try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
@@ -217,6 +212,9 @@
     function App() {
       const [tab, setTab] = useState("gerar");
       const [apiProvider, setApiProvider] = useState("deepseek");
+
+      // Gerenciamento de chaves (seguro, local)
+      const [apiKeys, setApiKeys] = useState(() => lsGet(KEYS.apiKeys, { anthropic: "", deepseek: "" }));
 
       const [temas, setTemas] = useState(() => lsGet(KEYS.temas, DEFAULT_TEMAS));
       const [cenarios, setCenarios] = useState(() => lsGet(KEYS.cenarios, DEFAULT_CENARIOS));
@@ -235,29 +233,41 @@
       const [sugestoes, setSugestoes] = useState(null);
       const [justUnlocked, setJustUnlocked] = useState(null);
 
+      const saveKey = (provider, val) => {
+        const newKeys = { ...apiKeys, [provider]: val };
+        setApiKeys(newKeys);
+        lsSet(KEYS.apiKeys, newKeys);
+      };
+
       const callAI = async (prompt, maxTokens = 4000) => {
+        const currentKey = apiKeys[apiProvider];
+        
+        if (!currentKey || currentKey.trim() === "") {
+            throw new Error(`A chave do Oráculo (${apiProvider.toUpperCase()}) não foi configurada. Insira sua chave no painel acima.`);
+        }
+
         if (apiProvider === "deepseek") {
           const res = await fetch("https://api.deepseek.com/chat/completions", {
             method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${window.DEEPSEEK_API_KEY}` },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${currentKey}` },
             body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: prompt }] })
           });
           const data = await res.json();
-          if(!data.choices) throw new Error("Falha na API DeepSeek.");
+          if(!data.choices) throw new Error("Falha na API DeepSeek. Verifique sua chave.");
           return data.choices[0].message.content;
         } else {
           const res = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: { 
               "Content-Type": "application/json", 
-              "x-api-key": window.ANTHROPIC_API_KEY, 
+              "x-api-key": currentKey, 
               "anthropic-version": "2023-06-01",
               "anthropic-dangerously-allow-browser": "true" 
             },
             body: JSON.stringify({ model: "claude-3-haiku-20240307", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] })
           });
           const data = await res.json();
-          if(!data.content) throw new Error("Falha na API Anthropic.");
+          if(!data.content) throw new Error("Falha na API Anthropic. Verifique sua chave.");
           return data.content[0].text;
         }
       };
@@ -360,7 +370,8 @@
 
         try {
           const jsonRes = await callAI(prompt, 800);
-          const clean = jsonRes.replace(/```json|```/g, "").trim();
+          const clean = jsonRes.replace(/```json|
+```/g, "").trim();
           const parsed = JSON.parse(clean);
           setSugestoes(parsed);
         } catch(e) {
@@ -395,6 +406,7 @@
           localStorage.clear();
           setTemas(DEFAULT_TEMAS); setCenarios(DEFAULT_CENARIOS); setTags(DEFAULT_TAGS); setHistorico([]);
           setTema(null); setCenario(null); setEscopo(null); setActiveTags([]); setResultado(null); setSugestoes(null);
+          setApiKeys({ anthropic: "", deepseek: "" });
         }
       };
 
@@ -444,13 +456,34 @@
               <p className="subtitle">Forjador de Crônicas & Sementes de Aventura Agnósticas</p>
             </header>
 
-            <div className="api-selector">
+            <div className="api-selector" style={{ marginBottom: "0.5rem" }}>
               <label className="api-label">
                 <input type="radio" name="provider" checked={apiProvider === "deepseek"} onChange={() => setApiProvider("deepseek")} /> Oráculo DeepSeek (Chat)
               </label>
               <label className="api-label">
                 <input type="radio" name="provider" checked={apiProvider === "anthropic"} onChange={() => setApiProvider("anthropic")} /> Oráculo Anthropic (Claude)
               </label>
+            </div>
+
+            
+            <div className="section" style={{ background: "rgba(200,151,58,0.05)", padding: "1rem 1.5rem", marginBottom: "1.5rem" }}>
+              <div className="section-title" style={{ marginBottom: "0.8rem" }}>⚙ Configuração do Oráculo</div>
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: "0.9rem", color: "var(--parchment-dim)" }}>
+                  Chave API ({apiProvider === 'deepseek' ? 'DeepSeek' : 'Anthropic'}):
+                </span>
+                <input 
+                  type="password" 
+                  placeholder="Cole sua chave sk-... aqui"
+                  value={apiKeys[apiProvider]}
+                  onChange={(e) => saveKey(apiProvider, e.target.value)}
+                  className="idea-textarea"
+                  style={{ flex: 1, minHeight: "35px", padding: "0.5rem 1rem", fontSize: "0.9rem", margin: 0 }}
+                />
+              </div>
+              <p style={{ fontSize: "0.75rem", color: "#7a6a50", marginTop: "0.5rem", fontStyle: "italic" }}>
+                Sua chave fica salva apenas no seu navegador localmente. Nenhuma informação é enviada a terceiros além da própria API.
+              </p>
             </div>
 
             <div className="nav-tabs">
@@ -692,7 +725,7 @@
     }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    root.render(<App/>);
   </script>
 </body>
 </html>
