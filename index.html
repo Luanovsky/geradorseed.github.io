@@ -265,7 +265,7 @@
       catch { return fallback; }
     }
     function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
-    function loadCfg() { return lsGet(CFG_KEY, { anthropicKey:"", deepseekKey:"", githubToken:"", gistId:"", provider:"deepseek" }); }
+    function loadCfg() { return lsGet(CFG_KEY, { anthropicKey:"", deepseekKey:"", githubToken:"", gistId:"", provider:"deepseek", contextoRico:true }); }
     function saveCfg(cfg) { lsSet(CFG_KEY, cfg); }
 
     // ── GITHUB GIST SYNC ──────────────────────────────────────────────────────
@@ -426,6 +426,21 @@
               <p style={{fontSize:".78rem",fontStyle:"italic",color:"#5a4a30",marginTop:".3rem"}}>
                 Sem GitHub: os dados ficam apenas no localStorage deste navegador.
               </p>
+            </div>
+
+            <div className="modal-section">
+              <div className="modal-section-title">Memória do Oráculo</div>
+              <div style={{display:"flex",alignItems:"flex-start",gap:".9rem",background:"rgba(200,151,58,.05)",border:"1px solid rgba(200,151,58,.15)",borderRadius:"5px",padding:"1rem"}}>
+                <div style={{paddingTop:".1rem"}}>
+                  <input type="checkbox" id="ctx-rico" checked={!!form.contextoRico} onChange={e=>set("contextoRico",e.target.checked)} style={{accentColor:"var(--gold)",width:"16px",height:"16px",cursor:"pointer"}}/>
+                </div>
+                <div>
+                  <label htmlFor="ctx-rico" style={{fontSize:".93rem",color:"var(--parchment)",cursor:"pointer",fontWeight:600,display:"block",marginBottom:".3rem"}}>Contexto Rico na Geração</label>
+                  <p style={{fontSize:".8rem",color:"var(--parchment-dim)",lineHeight:1.55}}>
+                    Quando ativado, a IA recebe um resumo do seu histórico antes de gerar cada seed: seus temas favoritos, seeds recentes do mundo ativo e padrões do seu estilo. Torna as aventuras mais coerentes e personalizadas. Acrescenta ~400 tokens por geração.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="modal-actions">
@@ -685,7 +700,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
         try {
           const text = await callAI(prompt);
           setResultado(text);
-          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:"Ideia Livre", cenario:"Processada", mundo:activeMundo?.nome||null, provider, text };
+          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:"Ideia Livre", cenario:"Processada", mundo:activeMundo?.nome||null, mundoId:activeMundo?.id||null, provider, text };
           updateHistorico([entry,...historico].slice(0,30));
           suggestNewItems(text);
           setTab("gerar");
@@ -715,6 +730,58 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
       };
 
 
+      const buildMasterContext = () => {
+        if (!cfg.contextoRico) return "";
+        const parts = [];
+
+        // Estilo: top 4 temas mais usados
+        const topTemas = [...temas].filter(t=>t.uses>0).sort((a,b)=>b.uses-a.uses).slice(0,4);
+        if (topTemas.length) parts.push("Estilo do mestre — temas preferidos: " + topTemas.map(t=>t.label).join(", "));
+
+        // Estilo: top 4 tags mais usadas
+        const topTags = [...tags].filter(t=>t.uses>0).sort((a,b)=>b.uses-a.uses).slice(0,4);
+        if (topTags.length) parts.push("Tags mais frequentes: " + topTags.map(t=>t.label).join(", "));
+
+        // Seeds recentes — filtradas pelo mundo ativo se houver
+        const recentSeeds = historico
+          .filter(h => activeMundo ? h.mundo === activeMundo.nome : true)
+          .slice(0, 3);
+
+        if (recentSeeds.length) {
+          const resumos = recentSeeds.map(h => {
+            // Extrai título: linha após "## Título" que não seja header
+            const lines = h.text.split("\n");
+            const tituloIdx = lines.findIndex(l => l.match(/^##\s*T[ií]tulo/i));
+            let titulo = h.tema || "Aventura";
+            if (tituloIdx >= 0) {
+              const proxLinha = lines.slice(tituloIdx+1).find(l => l.trim() && !l.startsWith("#"));
+              if (proxLinha) titulo = proxLinha.trim();
+            }
+            // Extrai premissa: primeira linha de parágrafo após "## Premissa"
+            const premissaIdx = lines.findIndex(l => l.match(/^##\s*Premissa/i));
+            let premissa = "";
+            if (premissaIdx >= 0) {
+              const proxParagrafo = lines.slice(premissaIdx+1).find(l => l.trim().length > 20 && !l.startsWith("#") && !l.startsWith("-"));
+              if (proxParagrafo) premissa = proxParagrafo.trim().slice(0, 130);
+            }
+            return "- \"" + titulo + "\"" + (premissa ? ": " + premissa + "…" : "");
+          });
+          const label = activeMundo
+            ? "Seeds anteriores em \"" + activeMundo.nome + "\" (EVITE repetir estas histórias)"
+            : "Seeds recentes geradas (EVITE repetir estas histórias)";
+          parts.push(label + ":\n" + resumos.join("\n"));
+        }
+
+        // Aviso de não repetição explícito
+        const totalSeeds = historico.filter(h => activeMundo ? h.mundo === activeMundo.nome : true).length;
+        if (totalSeeds > 3) {
+          parts.push("Total de seeds já geradas" + (activeMundo?" neste mundo":"") + ": " + totalSeeds + ". Varie o tipo de conflito, o ponto de partida e os antagonistas.");
+        }
+
+        if (!parts.length) return "";
+        return "\n\n━━ MEMÓRIA DO MESTRE ━━\n" + parts.join("\n") + "\n━━━━━━━━━━━━━━━━━━━━━━";
+      };
+
       const generateSeed = async () => {
         setLoading(true); setResultado(null); setSugestoes(null); setJustUnlocked(null);
         const tObj = temas.find(x=>x.id===tema);
@@ -727,6 +794,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
 - Escopo Estrutural: ${eObj?`${eObj.label} (${eObj.desc})`:"Aventura Padrão"}
 - Elementos Requeridos (Tags): ${selTags.length>0?selTags.map(x=>x.label).join(", "):"Livre"}
 ${dica.trim()?`- DIRETRIZ ESPECÍFICA DO MESTRE: ${dica}`:""}
+${buildMasterContext()}
 ${activeMundo ? `
 ━━ CONTEXTO DO MUNDO ATIVO: "${activeMundo.nome}" ━━
 ${activeMundo.descricao ? "Descrição: "+activeMundo.descricao : ""}
@@ -757,7 +825,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
           const nc = cenarios.map(x=>x.id===cenario?{...x,uses:x.uses+1}:x);
           const ntg = tags.map(x=>activeTags.includes(x.id)?{...x,uses:x.uses+1}:x);
           updateTemas(nt); updateCenarios(nc); updateTags(ntg);
-          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:tObj?.label, cenario:cObj?.label, provider, text };
+          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:tObj?.label, cenario:cObj?.label, mundo:activeMundo?.nome||null, mundoId:activeMundo?.id||null, provider, text };
           const nh = [entry,...historico].slice(0,30);
           updateHistorico(nh);
           suggestNewItems(text);
@@ -765,6 +833,55 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
           setResultado(`## Erro de Conjuração\n**${e.message}**`);
         }
         setLoading(false);
+      };
+
+      // ── HISTORICO: estado e funções ─────────────────────────────────────────
+      const [filtroMundoHist, setFiltroMundoHist] = useState("");
+      const [expandedHistId, setExpandedHistId] = useState(null);
+      const [incorporandoId, setIncorporandoId] = useState(null);
+
+      const historicoFiltrado = historico.filter(h => {
+        if (!filtroMundoHist) return true;
+        if (filtroMundoHist === "__sem_mundo__") return !h.mundoId;
+        return h.mundoId === filtroMundoHist;
+      });
+
+      const vincularSeedMundo = (seedId, mundoId) => {
+        const mundo = mundos.find(m=>m.id===mundoId)||null;
+        const updated = historico.map(h =>
+          h.id === seedId ? {...h, mundoId: mundoId||null, mundo: mundo?.nome||null} : h
+        );
+        updateHistorico(updated);
+      };
+
+      const deletarSeed = (seedId) => {
+        if (!confirm("Apagar esta seed do histórico?")) return;
+        updateHistorico(historico.filter(h=>h.id!==seedId));
+        if (expandedHistId===seedId) setExpandedHistId(null);
+      };
+
+      const incorporarSeedNoMundo = async (seed, mundo) => {
+        setIncorporandoId(seed.id);
+        const prompt = "Analise esta seed de aventura RPG e extraia elementos para enriquecer o lore de um mundo.\n\nSeed:\n" + seed.text.slice(0,2000) + "\n\nMundo atual — " + mundo.nome + ":\n" + (mundo.lore?"Lore: "+mundo.lore.slice(0,300):"") + "\n" + (mundo.npcs?"NPCs: "+mundo.npcs.slice(0,200):"") + "\n" + (mundo.locais?"Locais: "+mundo.locais.slice(0,200):"") + "\n\nRetorne APENAS JSON válido sem markdown:\n{\"lore\":\"novos elementos de lore extraídos (string, pode ser vazio)\",\"npcs\":\"novos NPCs encontrados (string, pode ser vazio)\",\"locais\":\"novos locais encontrados (string, pode ser vazio)\",\"faccoes\":\"novas facções encontradas (string, pode ser vazio)\"}";
+        try {
+          const res = await callAI(prompt, 600);
+          const cleaned = res.replace(/```json/g,"").replace(/```/g,"").trim();
+          const parsed = JSON.parse(cleaned);
+          const updated = {
+            ...mundo,
+            lore: [mundo.lore, parsed.lore].filter(Boolean).join("\n\n").trim(),
+            npcs: [mundo.npcs, parsed.npcs].filter(Boolean).join("\n\n").trim(),
+            locais: [mundo.locais, parsed.locais].filter(Boolean).join("\n\n").trim(),
+            faccoes: [mundo.faccoes, parsed.faccoes].filter(Boolean).join("\n\n").trim(),
+          };
+          updateMundos(mundos.map(m=>m.id===mundo.id?updated:m));
+          // Também vincula a seed ao mundo se ainda não estiver
+          if (!seed.mundoId) vincularSeedMundo(seed.id, mundo.id);
+          alert("Incorporado com sucesso ao lore de \"" + mundo.nome + "\"!");
+        } catch(e) {
+          alert("Erro ao incorporar: " + e.message);
+        }
+        setIncorporandoId(null);
       };
 
       const resetAll = () => {
@@ -1261,37 +1378,119 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                 </div>
               )}
 
-              {/* ── TAB HISTÓRICO ── */}
+                            {/* ── TAB HISTÓRICO ── */}
               {tab==="historico" && (
-                <div>
-                  <div style={{display:"flex",justifyContent:"flex-end",marginBottom:".8rem",gap:".5rem"}}>
-                    {cfg.githubToken && cfg.gistId && (
-                      <button className="btn btn-ghost" onClick={syncFromGist} disabled={syncStatus==="syncing"}>
-                        {syncStatus==="syncing"?"↺ Sincronizando…":"↺ Sincronizar com Gist"}
-                      </button>
-                    )}
+                <div style={{display:"flex",flexDirection:"column",gap:"1rem"}}>
+
+                  {/* TOOLBAR */}
+                  <div style={{display:"flex",gap:".6rem",alignItems:"center",flexWrap:"wrap"}}>
+                    {/* Filtro por mundo */}
+                    <select
+                      value={filtroMundoHist}
+                      onChange={e=>setFiltroMundoHist(e.target.value)}
+                      style={{background:"rgba(0,0,0,.4)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"4px",padding:".38rem .7rem",fontFamily:"'Crimson Pro',serif",fontSize:".88rem",color:"var(--parchment)",outline:"none",cursor:"pointer"}}>
+                      <option value="">🌍 Todos os mundos</option>
+                      <option value="__sem_mundo__">— Sem mundo vinculado</option>
+                      {mundos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}
+                    </select>
+                    <span style={{fontSize:".8rem",fontStyle:"italic",color:"var(--parchment-dim)"}}>
+                      {historicoFiltrado.length} seed(s)
+                    </span>
+                    <div style={{marginLeft:"auto",display:"flex",gap:".5rem"}}>
+                      {cfg.githubToken && cfg.gistId && (
+                        <button className="btn btn-ghost" onClick={syncFromGist} disabled={syncStatus==="syncing"}>
+                          {syncStatus==="syncing"?"↺ Sincronizando…":"↺ Sincronizar"}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {historico.length===0 ? (
-                    <p className="empty-state">Nenhum pergaminho guardado ainda.</p>
+
+                  {/* LISTA */}
+                  {historicoFiltrado.length===0 ? (
+                    <p className="empty-state">
+                      {historico.length===0 ? "Nenhum pergaminho guardado ainda." : "Nenhuma seed para este filtro."}
+                    </p>
                   ) : (
                     <div className="history-list">
-                      {historico.map(h=>(
-                        <div key={h.id} className="history-item" onClick={()=>{setResultado(h.text);setTab("gerar");setSugestoes(null);}}>
-                          <div className="history-meta">
-                            {h.tema && <span className="badge">{h.tema}</span>}
-                            {h.cenario && <span className="badge">{h.cenario}</span>}
-                            {h.provider && <span className="badge" style={{opacity:.6}}>{h.provider}</span>}
+                      {historicoFiltrado.map(h => {
+                        const titulo = h.text.split('\n').find(x=>x.startsWith('## '))?.replace('## ','')||"Aventura Sem Título";
+                        const mundoVinculado = mundos.find(m=>m.id===h.mundoId);
+                        const isExpanded = expandedHistId === h.id;
+                        return (
+                          <div key={h.id} style={{background:"var(--surface)",border:`1px solid ${mundoVinculado?"rgba(200,151,58,.35)":"var(--border)"}`,borderRadius:"5px",overflow:"hidden",transition:"all .2s"}}>
+
+                            {/* HEADER DO CARD */}
+                            <div style={{padding:"1rem 1.2rem",cursor:"pointer"}} onClick={()=>setExpandedHistId(isExpanded?null:h.id)}>
+                              <div style={{display:"flex",gap:".35rem",flexWrap:"wrap",marginBottom:".4rem",alignItems:"center"}}>
+                                {mundoVinculado && <span style={{background:"rgba(200,151,58,.12)",border:"1px solid rgba(200,151,58,.3)",borderRadius:"3px",padding:".1rem .45rem",fontSize:".7rem",color:"var(--gold)"}}>🌍 {mundoVinculado.nome}</span>}
+                                {h.tema && <span className="badge">{h.tema}</span>}
+                                {h.cenario && <span className="badge">{h.cenario}</span>}
+                                {h.provider && <span className="badge" style={{opacity:.5}}>{h.provider}</span>}
+                                <span style={{marginLeft:"auto",fontSize:".72rem",color:"#5a4a30"}}>{isExpanded?"▲":"▼"}</span>
+                              </div>
+                              <div style={{fontSize:".93rem",color:"var(--parchment-dim)",fontStyle:"italic",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{titulo}</div>
+                              <div style={{fontSize:".75rem",color:"#5a4a30",marginTop:".3rem"}}>Forjado em: {h.date}</div>
+                            </div>
+
+                            {/* EXPANDED ACTIONS */}
+                            {isExpanded && (
+                              <div style={{borderTop:"1px solid rgba(200,151,58,.15)",padding:"1rem 1.2rem",display:"flex",flexDirection:"column",gap:".8rem",background:"rgba(0,0,0,.2)"}}>
+
+                                {/* VINCULAR A MUNDO */}
+                                <div style={{display:"flex",alignItems:"center",gap:".6rem",flexWrap:"wrap"}}>
+                                  <span style={{fontSize:".8rem",color:"var(--parchment-dim)",whiteSpace:"nowrap"}}>Vincular ao mundo:</span>
+                                  <select
+                                    value={h.mundoId||""}
+                                    onChange={e=>vincularSeedMundo(h.id, e.target.value||null)}
+                                    style={{background:"rgba(0,0,0,.4)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"4px",padding:".3rem .6rem",fontFamily:"'Crimson Pro',serif",fontSize:".85rem",color:"var(--parchment)",outline:"none",cursor:"pointer",flex:1,minWidth:"140px"}}>
+                                    <option value="">— Nenhum —</option>
+                                    {mundos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}
+                                  </select>
+                                </div>
+
+                                {/* INCORPORAR AO MUNDO */}
+                                {mundoVinculado && (
+                                  <div style={{background:"rgba(200,151,58,.05)",border:"1px dashed rgba(200,151,58,.25)",borderRadius:"4px",padding:".7rem .9rem",display:"flex",alignItems:"center",gap:".8rem",flexWrap:"wrap"}}>
+                                    <div style={{flex:1}}>
+                                      <div style={{fontSize:".82rem",color:"var(--gold)",fontWeight:600,marginBottom:".2rem"}}>Incorporar ao lore de "{mundoVinculado.nome}"</div>
+                                      <div style={{fontSize:".78rem",color:"var(--parchment-dim)",fontStyle:"italic"}}>A IA extrai NPCs, locais e eventos desta seed e adiciona ao mundo.</div>
+                                    </div>
+                                    <button
+                                      className="btn btn-ingest"
+                                      style={{whiteSpace:"nowrap",padding:".4rem .9rem",fontSize:".82rem"}}
+                                      disabled={incorporandoId===h.id}
+                                      onClick={()=>incorporarSeedNoMundo(h, mundoVinculado)}>
+                                      {incorporandoId===h.id ? "⚗ Incorporando..." : "⚗ Incorporar"}
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* AÇÕES */}
+                                <div style={{display:"flex",gap:".5rem",flexWrap:"wrap"}}>
+                                  <button className="btn btn-ghost" style={{fontSize:".82rem",padding:".32rem .8rem"}}
+                                    onClick={()=>{setResultado(h.text);setTab("gerar");setSugestoes(null);setExpandedHistId(null);}}>
+                                    📖 Abrir seed
+                                  </button>
+                                  <button className="btn btn-ghost" style={{fontSize:".82rem",padding:".32rem .8rem"}}
+                                    onClick={()=>navigator.clipboard.writeText(h.text)}>
+                                    ⎘ Copiar
+                                  </button>
+                                  <button className="btn btn-danger" style={{fontSize:".82rem",padding:".32rem .8rem",marginLeft:"auto"}}
+                                    onClick={()=>deletarSeed(h.id)}>
+                                    🗑 Apagar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="history-preview">{h.text.split('\n').find(x=>x.startsWith('## '))?.replace('## ','')||"Aventura Sem Título"}</div>
-                          <div className="history-date">Forjado em: {h.date}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* ── TAB BIBLIOTECA ── */}
+{/* ── TAB BIBLIOTECA ── */}
               {tab==="biblioteca" && (
                 <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
                   <div className="stats-grid">
