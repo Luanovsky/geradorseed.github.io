@@ -538,6 +538,9 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
       const [activeTags, setActiveTags] = useState([]);
       const [dica, setDica] = useState("");
       const [ideiaCrua, setIdeiaCrua] = useState("");
+      const [ideiaExtraindo, setIdeiaExtraindo] = useState(false);
+      const [ideiaExtraida, setIdeiaExtraida] = useState(null);
+      const [ideiaConfirmados, setIdeiaConfirmados] = useState([]);
 
       const [loading, setLoading] = useState(false);
       const [resultado, setResultado] = useState(null);
@@ -627,6 +630,91 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
       };
 
       // ── GENERATE ─────────────────────────────────────────────────────────────
+      const extrairDaIdeia = async () => {
+        if (!ideiaCrua.trim()) return;
+        setIdeiaExtraindo(true); setIdeiaExtraida(null); setIdeiaConfirmados([]);
+        const existingTemas = temas.map(x => x.label.toLowerCase());
+        const existingCenarios = cenarios.map(x => x.label.toLowerCase());
+        const existingTags = tags.map(x => x.label.toLowerCase());
+        const prompt = "Você é um assistente de criação de RPG. Analise o texto abaixo e extraia elementos reutilizáveis.\n\nTexto:\n\"" + ideiaCrua + "\"\n\nRetorne APENAS JSON válido sem markdown:\n{\"resumo\":\"frase resumindo\",\"temas\":[{\"label\":\"Nome\",\"icon\":\"emoji\",\"motivo\":\"razão\"}],\"cenarios\":[{\"label\":\"Nome\",\"icon\":\"emoji\",\"motivo\":\"razão\"}],\"tags\":[{\"label\":\"nome em minúsculas\",\"motivo\":\"razão\"}]}\n\nNÃO retorne elementos já existentes. Temas existentes: " + existingTemas.join(", ") + ". Cenários existentes: " + existingCenarios.join(", ") + ". Tags existentes: " + existingTags.join(", ") + ". Seja específico e criativo. Se não encontrar novos elementos numa categoria, retorne array vazio.";
+        try {
+          const res = await callAI(prompt, 800);
+          const cleaned = res.replace(/```json/g,"").replace(/```/g,"").trim();
+          const parsed = JSON.parse(cleaned);
+          setIdeiaExtraida(parsed);
+        } catch(e) { alert("Erro ao extrair: " + e.message); }
+        setIdeiaExtraindo(false);
+      };
+
+      const confirmarElemento = (tipo, item) => {
+        const id = item.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        if (tipo === 'temas' && !temas.some(x => x.id === id))
+          updateTemas([...temas, {id, label:item.label, icon:item.icon||"✨", uses:0, source:"ideia"}]);
+        else if (tipo === 'cenarios' && !cenarios.some(x => x.id === id))
+          updateCenarios([...cenarios, {id, label:item.label, icon:item.icon||"🗺️", uses:0, source:"ideia"}]);
+        else if (tipo === 'tags' && !tags.some(x => x.id === id))
+          updateTags([...tags, {id, label:item.label.toLowerCase(), uses:0, source:"ideia"}]);
+        setIdeiaConfirmados(p => [...p, id]);
+      };
+
+      const confirmarTudo = () => {
+        if (!ideiaExtraida) return;
+        let nt = [...temas], nc = [...cenarios], ntg = [...tags];
+        const newIds = [];
+        (ideiaExtraida.temas||[]).forEach(item => {
+          const id = item.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          if (!nt.some(x => x.id === id)) { nt.push({id, label:item.label, icon:item.icon||"✨", uses:0, source:"ideia"}); newIds.push(id); }
+        });
+        (ideiaExtraida.cenarios||[]).forEach(item => {
+          const id = item.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          if (!nc.some(x => x.id === id)) { nc.push({id, label:item.label, icon:item.icon||"🗺️", uses:0, source:"ideia"}); newIds.push(id); }
+        });
+        (ideiaExtraida.tags||[]).forEach(item => {
+          const id = item.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          if (!ntg.some(x => x.id === id)) { ntg.push({id, label:item.label.toLowerCase(), uses:0, source:"ideia"}); newIds.push(id); }
+        });
+        updateTemas(nt); updateCenarios(nc); updateTags(ntg);
+        setIdeiaConfirmados(newIds);
+      };
+
+      const processRawIdea = async () => {
+        if (!ideiaCrua.trim()) return;
+        setLoading(true); setResultado(null); setSugestoes(null);
+        const worldCtx = activeMundo ? ("\n\nContexto do mundo ativo — " + activeMundo.nome + ":" + (activeMundo.descricao ? "\nDescrição: "+activeMundo.descricao : "") + (activeMundo.lore ? "\nLore: "+activeMundo.lore.slice(0,400) : "") + (activeMundo.locais ? "\nLocais: "+activeMundo.locais.slice(0,200) : "") + (activeMundo.faccoes ? "\nFacções: "+activeMundo.faccoes.slice(0,200) : "") + (activeMundo.npcs ? "\nNPCs: "+activeMundo.npcs.slice(0,200) : "") + (activeMundo.restricoes ? "\nRestrições: "+activeMundo.restricoes : "") + "\n\nIMPORTANTE: A seed deve se encaixar neste mundo.") : "";
+        const prompt = "Você é um mestre experiente. Recebi estas anotações:\n\"" + ideiaCrua + "\"" + worldCtx + "\nTransforme em semente de RPG agnóstica com ## Título, ## Premissa, ## Ponto de Partida, ## Elementos-Chave, ## Reviravoltas & Perigos";
+        try {
+          const text = await callAI(prompt);
+          setResultado(text);
+          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:"Ideia Livre", cenario:"Processada", mundo:activeMundo?.nome||null, provider, text };
+          updateHistorico([entry,...historico].slice(0,30));
+          suggestNewItems(text);
+          setTab("gerar");
+        } catch(e) { setResultado("## Erro\n**" + e.message + "**"); setTab("gerar"); }
+        setLoading(false);
+      };
+
+      const suggestNewItems = async (txt) => {
+        const prompt = "Analise a semente RPG abaixo e extraia até 3 novos elementos de cada tipo. Retorne APENAS JSON válido:\n{\"temas\":[\"Nome\"],\"cenarios\":[\"Nome\"],\"tags\":[\"tag\"]}\nAventura:\n" + txt.substring(0, 1200);
+        try {
+          const res = await callAI(prompt, 500);
+          const cleaned = res.replace(/```json/g,"").replace(/```/g,"").trim();
+          setSugestoes(JSON.parse(cleaned));
+        } catch {}
+      };
+
+      const ingestSuggestion = (type, label) => {
+        const newId = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        if (type==='temas' && !temas.some(x=>x.id===newId))
+          updateTemas([...temas, {id:newId, label, icon:"✨", uses:0, source:"seed"}]);
+        else if (type==='cenarios' && !cenarios.some(x=>x.id===newId))
+          updateCenarios([...cenarios, {id:newId, label, icon:"🗺️", uses:0, source:"seed"}]);
+        else if (type==='tags' && !tags.some(x=>x.id===newId))
+          updateTags([...tags, {id:newId, label:label.toLowerCase(), uses:0, source:"seed"}]);
+        setJustUnlocked({type, label});
+        setSugestoes(p => ({...p, [type]:p[type].filter(x=>x!==label)}));
+      };
+
+
       const generateSeed = async () => {
         setLoading(true); setResultado(null); setSugestoes(null); setJustUnlocked(null);
         const tObj = temas.find(x=>x.id===tema);
@@ -677,46 +765,6 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
           setResultado(`## Erro de Conjuração\n**${e.message}**`);
         }
         setLoading(false);
-      };
-
-      const processRawIdea = async () => {
-        if (!ideiaCrua.trim()) return;
-        setLoading(true); setResultado(null); setSugestoes(null);
-        const prompt = `Você é um mestre experiente. Recebi estas anotações de ideias esparsas:\n"${ideiaCrua}"\n\nTransforme em uma semente estruturada de RPG agnóstica. Use "## " para os títulos:\n## Título\n## Premissa\n## Ponto de Partida\n## Elementos-Chave\n## Reviravoltas & Perigos`;
-        try {
-          const text = await callAI(prompt);
-          setResultado(text);
-          const entry = { id:Date.now().toString(), date:new Date().toLocaleDateString('pt-BR'), tema:"Ideia Livre", cenario:"Processada", provider, text };
-          const nh = [entry,...historico].slice(0,30);
-          updateHistorico(nh);
-          suggestNewItems(text);
-          setTab("gerar");
-        } catch(e) {
-          setResultado(`## Erro\n**${e.message}**`); setTab("gerar");
-        }
-        setLoading(false);
-      };
-
-      const suggestNewItems = async (txt) => {
-        const prompt = `Analise a semente de aventura RPG abaixo e extraia ideias abstratas. Retorne APENAS JSON válido:\n{"temas":["Nome Curto"],"cenarios":["Nome Curto"],"tags":["tag nova"]}\nAventura:\n${txt.substring(0,1200)}`;
-        try {
-          const res = await callAI(prompt, 600);
-          const parsed = JSON.parse(res.replace(/```json|```/g,"").trim());
-          setSugestoes(parsed);
-        } catch {}
-      };
-
-      const ingestSuggestion = (type, label) => {
-        const newId = label.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
-        if (type==='temas' && !temas.some(x=>x.id===newId)) {
-          updateTemas([...temas, {id:newId,label,icon:"✨",uses:0}]);
-        } else if (type==='cenarios' && !cenarios.some(x=>x.id===newId)) {
-          updateCenarios([...cenarios, {id:newId,label,icon:"🗺️",uses:0}]);
-        } else if (type==='tags' && !tags.some(x=>x.id===newId)) {
-          updateTags([...tags, {id:newId,label:label.toLowerCase(),uses:0}]);
-        }
-        setJustUnlocked({type,label});
-        setSugestoes(p => ({...p,[type]:p[type].filter(x=>x!==label)}));
       };
 
       const resetAll = () => {
@@ -932,19 +980,103 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
 
               {/* ── TAB IDEIAS ── */}
               {tab==="ideias" && (
-                <div className="idea-area">
-                  <div className="section-title">💡 Alquimia de Ideias Livres</div>
-                  <p style={{fontSize:".93rem",color:"var(--parchment-dim)",fontStyle:"italic",marginBottom:"1rem",lineHeight:1.65}}>
-                    Cole parágrafos esparsos, insights de campanhas antigas ou rascunhos crus. O oráculo estruturará uma seed completa e extrairá novos elementos para alimentar suas futuras criações.
-                  </p>
-                  <textarea className="idea-textarea" style={{minHeight:"200px"}}
-                    placeholder="Ex: Uma colônia prisional submersa onde a escassez de água gerou um culto fanático..."
-                    value={ideiaCrua} onChange={e=>setIdeiaCrua(e.target.value)}/>
-                  <div className="generate-area" style={{marginTop:"1.5rem"}}>
-                    <button className={`btn btn-primary ${loading?"loading":""}`} onClick={processRawIdea} disabled={loading||!ideiaCrua.trim()||!providerOk}>
-                      {loading?"LAPIDANDO ESSÊNCIA...":"✦ PROCESSAR E INCORPORAR IDEIA ✦"}
-                    </button>
+                <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
+
+                  <div className="idea-area">
+                    <div className="section-title">💡 Alquimia de Ideias Livres</div>
+                    {activeMundo && (
+                      <div style={{background:"rgba(200,151,58,.06)",border:"1px solid rgba(200,151,58,.2)",borderRadius:"4px",padding:".6rem .9rem",fontSize:".85rem",color:"var(--gold-dim)",marginBottom:"1rem"}}>
+                        🌍 Mundo ativo: <strong style={{color:"var(--gold)"}}>{activeMundo.nome}</strong>
+                      </div>
+                    )}
+                    <p style={{fontSize:".93rem",color:"var(--parchment-dim)",fontStyle:"italic",marginBottom:"1rem",lineHeight:1.65}}>
+                      Cole qualquer texto — ideias, lore, referências, anotações. <strong style={{color:"var(--gold)"}}>Extrair Elementos</strong> salva temas, cenários e tags no grimório. <strong style={{color:"var(--gold)"}}>Gerar Seed</strong> transforma em aventura estruturada.
+                    </p>
+                    <textarea className="idea-textarea" style={{minHeight:"180px"}}
+                      placeholder={"Ex: 'Uma cidade construída sobre as costas de uma criatura adormecida...' — ou referências a Dark Souls, Planescape, suas anotações de campanha..."}
+                      value={ideiaCrua} onChange={e=>{setIdeiaCrua(e.target.value);setIdeiaExtraida(null);setIdeiaConfirmados([]);}}/>
+                    <div style={{display:"flex",gap:".7rem",marginTop:"1rem",flexWrap:"wrap"}}>
+                      <button className="btn btn-ingest" onClick={extrairDaIdeia} disabled={!ideiaCrua.trim()||ideiaExtraindo||!providerOk}>
+                        {ideiaExtraindo ? "⚗ Analisando..." : "⚗ Extrair Elementos"}
+                      </button>
+                      <button className={`btn btn-primary ${loading?"loading":""}`} style={{padding:".6rem 1.6rem",fontSize:".88rem"}} onClick={processRawIdea} disabled={loading||!ideiaCrua.trim()||!providerOk}>
+                        {loading ? "FORJANDO..." : "✦ Gerar Seed"}
+                      </button>
+                      {ideiaCrua && <button className="btn btn-ghost" style={{marginLeft:"auto"}} onClick={()=>{setIdeiaCrua("");setIdeiaExtraida(null);setIdeiaConfirmados([]);}}>Limpar</button>}
+                    </div>
                   </div>
+
+                  {ideiaExtraida && (
+                    <div style={{background:"rgba(10,6,2,.7)",border:"1px solid rgba(200,151,58,.3)",borderRadius:"6px",padding:"1.6rem 2rem",animation:"fadeIn .4s ease"}}>
+                      <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:".68rem",letterSpacing:".15em",color:"var(--gold)",textTransform:"uppercase",marginBottom:".8rem",display:"flex",alignItems:"center",gap:".6rem"}}>
+                        Elementos Extraídos
+                        <span style={{flex:1,height:"1px",background:"linear-gradient(to right,rgba(200,151,58,.35),transparent)"}}/>
+                      </div>
+                      {ideiaExtraida.resumo && (
+                        <p style={{fontSize:".9rem",fontStyle:"italic",color:"var(--parchment-dim)",marginBottom:"1.3rem",lineHeight:1.5,borderLeft:"2px solid rgba(200,151,58,.3)",paddingLeft:".8rem"}}>
+                          "{ideiaExtraida.resumo}"
+                        </p>
+                      )}
+
+                      {["temas","cenarios","tags"].map(tipo => {
+                        const items = ideiaExtraida[tipo] || [];
+                        if (!items.length) return null;
+                        const labels = {temas:"⚔ Temas", cenarios:"🗺 Cenários", tags:"🏷 Tags"};
+                        const existsCheck = tipo==="temas" ? temas : tipo==="cenarios" ? cenarios : tags;
+                        return (
+                          <div key={tipo} style={{marginBottom:"1.2rem"}}>
+                            <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:".6rem",letterSpacing:".12em",color:"var(--gold-dim)",textTransform:"uppercase",marginBottom:".6rem"}}>
+                              {labels[tipo]} ({items.length})
+                            </div>
+                            <div style={{display:"flex",flexDirection: tipo==="tags"?"row":"column",flexWrap:"wrap",gap:".5rem"}}>
+                              {items.map((item,i) => {
+                                const id = item.label.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-');
+                                const jaExiste = existsCheck.some(x=>x.id===id);
+                                const confirmado = ideiaConfirmados.includes(id);
+                                if (tipo === "tags") return (
+                                  <div key={i} style={{display:"flex",alignItems:"center",gap:".4rem",background:"rgba(255,255,255,.02)",border:`1px solid ${confirmado?"rgba(64,192,128,.4)":"rgba(200,151,58,.15)"}`,borderRadius:"20px",padding:".28rem .8rem"}}>
+                                    <span style={{fontSize:".88rem",color:confirmado?"var(--green)":"var(--parchment)"}}>{item.label}</span>
+                                    {item.motivo && <span title={item.motivo} style={{fontSize:".7rem",color:"var(--parchment-dim)",cursor:"help",opacity:.7}}>ⓘ</span>}
+                                    {jaExiste ? <span style={{fontSize:".7rem",color:"#5a4a30"}}>✓</span>
+                                      : confirmado ? <span style={{fontSize:".72rem",color:"var(--green)"}}>✓</span>
+                                      : <button style={{background:"transparent",border:"none",color:"var(--gold)",cursor:"pointer",fontSize:".85rem",padding:"0",lineHeight:1,fontWeight:700}} onClick={()=>confirmarElemento(tipo,item)}>+</button>}
+                                  </div>
+                                );
+                                return (
+                                  <div key={i} style={{display:"flex",alignItems:"center",gap:".8rem",background:"rgba(255,255,255,.02)",border:`1px solid ${confirmado?"rgba(64,192,128,.4)":"rgba(200,151,58,.15)"}`,borderRadius:"4px",padding:".55rem .9rem"}}>
+                                    <span style={{fontSize:"1.2rem"}}>{item.icon}</span>
+                                    <div style={{flex:1}}>
+                                      <div style={{fontSize:".93rem",color:confirmado?"var(--green)":"var(--parchment)",fontWeight:600}}>{item.label}</div>
+                                      {item.motivo && <div style={{fontSize:".78rem",color:"var(--parchment-dim)",fontStyle:"italic",marginTop:".1rem"}}>{item.motivo}</div>}
+                                    </div>
+                                    {jaExiste ? <span style={{fontSize:".72rem",color:"#5a4a30",fontStyle:"italic",whiteSpace:"nowrap"}}>já existe</span>
+                                      : confirmado ? <span style={{fontSize:".78rem",color:"var(--green)",whiteSpace:"nowrap"}}>✓ Adicionado</span>
+                                      : <button className="btn btn-ghost" style={{padding:".28rem .65rem",fontSize:".78rem",whiteSpace:"nowrap"}} onClick={()=>confirmarElemento(tipo,item)}>+ Adicionar</button>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {!ideiaExtraida.temas?.length && !ideiaExtraida.cenarios?.length && !ideiaExtraida.tags?.length && (
+                        <p style={{fontStyle:"italic",color:"var(--parchment-dim)",fontSize:".9rem"}}>Nenhum elemento novo encontrado — todos já existem no grimório.</p>
+                      )}
+
+                      {(ideiaExtraida.temas?.length > 0 || ideiaExtraida.cenarios?.length > 0 || ideiaExtraida.tags?.length > 0) && (
+                        <div style={{display:"flex",alignItems:"center",gap:".8rem",marginTop:"1.2rem",paddingTop:"1rem",borderTop:"1px solid rgba(200,151,58,.15)",flexWrap:"wrap"}}>
+                          <button className="btn btn-primary" style={{padding:".6rem 1.6rem",fontSize:".88rem"}} onClick={confirmarTudo}>
+                            ✓ Adicionar Todos ao Grimório
+                          </button>
+                          <span style={{fontSize:".82rem",color:"var(--parchment-dim)",fontStyle:"italic"}}>
+                            {ideiaConfirmados.length > 0 ? ideiaConfirmados.length + " elemento(s) adicionado(s)" : "ou adicione um por um acima"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               )}
 
