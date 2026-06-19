@@ -26,7 +26,11 @@
 
     /* ── MODAL OVERLAY ── */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;animation:fadeIn .2s ease}
-    .modal{background:#110d08;border:1px solid rgba(200,151,58,.35);border-radius:8px;padding:2.5rem;width:100%;max-width:540px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+    .modal{background:#110d08;border:1px solid rgba(200,151,58,.35);border-radius:8px;padding:2.5rem;width:100%;max-width:540px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto}
+    .modal::-webkit-scrollbar{width:6px}
+    .modal::-webkit-scrollbar-track{background:rgba(0,0,0,.2)}
+    .modal::-webkit-scrollbar-thumb{background:rgba(200,151,58,.3);border-radius:3px}
+    .modal::-webkit-scrollbar-thumb:hover{background:rgba(200,151,58,.5)}
     .modal::before{content:'';position:absolute;inset:0;border-radius:8px;background:radial-gradient(ellipse at 50% 0%,rgba(200,151,58,.08) 0%,transparent 60%);pointer-events:none}
     .modal-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold);letter-spacing:.08em;margin-bottom:.4rem}
     .modal-sub{font-style:italic;color:var(--parchment-dim);font-size:.9rem;margin-bottom:1.8rem;line-height:1.5}
@@ -329,7 +333,11 @@
             set("gistId", gid);
             setForm(p => ({ ...p, gistId: gid }));
           } else {
-            await gistRead(form.githubToken, gid);
+            const data = await gistRead(form.githubToken, gid);
+            if (data.apiKeys) {
+              if (data.apiKeys.deepseekKey) set("deepseekKey", data.apiKeys.deepseekKey);
+              if (data.apiKeys.anthropicKey) set("anthropicKey", data.apiKeys.anthropicKey);
+            }
           }
           setTestResult(p => ({ ...p, gist: "ok" }));
         } catch(e) {
