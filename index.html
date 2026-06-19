@@ -379,7 +379,7 @@
             <div className="modal-title">✦ Configuração do Grimório</div>
             <p className="modal-sub">
               {isFirstRun
-                ? "Bem-vindo! Configure suas chaves de API para começar. As chaves de AI e todos os dados são salvos no Gist privado — em qualquer outro dispositivo, basta o Token do GitHub."
+                ? "Bem-vindo! Configure suas chaves de API para começar. As chaves de AI e todos os dados são salvos no Gist privado — em qualquer outro dispositivo, basta informar o Token GitHub e o ID do Gist."
                 : "Gerencie suas chaves de API e sincronização com GitHub Gist."}
             </p>
 
@@ -387,7 +387,7 @@
             {gistConfigured && (
               <div className="gist-key-banner">
                 <span>🔒</span>
-                <span>As chaves de AI serão salvas criptografadas no seu Gist privado. Em outro dispositivo, basta informar o Token GitHub para restaurar tudo automaticamente.</span>
+                <span>As chaves de AI serão salvas criptografadas no seu Gist privado. Em outro dispositivo, basta informar o Token GitHub e o ID do Gist para restaurar tudo automaticamente.</span>
               </div>
             )}
 
