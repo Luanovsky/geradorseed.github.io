@@ -26,11 +26,7 @@
 
     /* ── MODAL OVERLAY ── */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;animation:fadeIn .2s ease}
-    .modal{background:#110d08;border:1px solid rgba(200,151,58,.35);border-radius:8px;padding:2.5rem;width:100%;max-width:540px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.7);max-height:90vh;overflow-y:auto}
-    .modal::-webkit-scrollbar{width:6px}
-    .modal::-webkit-scrollbar-track{background:rgba(0,0,0,.2)}
-    .modal::-webkit-scrollbar-thumb{background:rgba(200,151,58,.3);border-radius:3px}
-    .modal::-webkit-scrollbar-thumb:hover{background:rgba(200,151,58,.5)}
+    .modal{background:#110d08;border:1px solid rgba(200,151,58,.35);border-radius:8px;padding:2.5rem;width:100%;max-width:540px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.7)}
     .modal::before{content:'';position:absolute;inset:0;border-radius:8px;background:radial-gradient(ellipse at 50% 0%,rgba(200,151,58,.08) 0%,transparent 60%);pointer-events:none}
     .modal-title{font-family:'Cinzel Decorative',serif;font-size:1rem;color:var(--gold);letter-spacing:.08em;margin-bottom:.4rem}
     .modal-sub{font-style:italic;color:var(--parchment-dim);font-size:.9rem;margin-bottom:1.8rem;line-height:1.5}
@@ -204,9 +200,6 @@
     .world-seed-banner{background:rgba(200,151,58,.08);border:1px solid rgba(200,151,58,.3);border-radius:5px;padding:.65rem 1rem;font-size:.88rem;color:var(--gold-bright);display:flex;align-items:center;gap:.6rem}
     .world-seed-banner strong{color:var(--gold)}
     @media(max-width:768px){.wf-grid{grid-template-columns:1fr}}
-
-    /* ── GIST KEY BANNER ── */
-    .gist-key-banner{background:rgba(64,192,128,.06);border:1px solid rgba(64,192,128,.2);border-radius:5px;padding:.55rem .9rem;font-size:.8rem;color:#50b870;display:flex;align-items:center;gap:.5rem;margin-top:.4rem}
   </style>
 </head>
 <body>
@@ -259,10 +252,11 @@
       nome: "",
       descricao: "",
       lore: "",
-      locais: "",
-      faccoes: "",
-      npcs: "",
+      locais: [],
+      faccoes: [],
+      npcs: [],
       restricoes: "",
+      sessoes: "",
       criadoEm: new Date().toLocaleDateString('pt-BR'),
     });
 
@@ -333,11 +327,7 @@
             set("gistId", gid);
             setForm(p => ({ ...p, gistId: gid }));
           } else {
-            const data = await gistRead(form.githubToken, gid);
-            if (data.apiKeys) {
-              if (data.apiKeys.deepseekKey) set("deepseekKey", data.apiKeys.deepseekKey);
-              if (data.apiKeys.anthropicKey) set("anthropicKey", data.apiKeys.anthropicKey);
-            }
+            await gistRead(form.githubToken, gid);
           }
           setTestResult(p => ({ ...p, gist: "ok" }));
         } catch(e) {
@@ -375,11 +365,8 @@
       const StatusDot = ({ k }) => {
         const v = testResult[k];
         if (!v) return null;
-        return <span style={{fontSize:".78rem", color: v==="ok"?"var(--green)":"var(--red)", marginLeft:".4rem"}}>{v==="ok"?"✓ OK":"✗ "+v}</span>;
+        return React.createElement("span", {style:{fontSize:".78rem",color:v==="ok"?"var(--green)":"var(--red)",marginLeft:".4rem"}}, v==="ok"?"OK":"Error");
       };
-
-      // Whether Gist sync is configured — if yes, keys will be synced automatically
-      const gistConfigured = !!(form.githubToken && form.gistId);
 
       return (
         <div className="modal-overlay" onClick={e => { if(!isFirstRun && e.target===e.currentTarget) onClose(); }}>
@@ -387,25 +374,16 @@
             <div className="modal-title">✦ Configuração do Grimório</div>
             <p className="modal-sub">
               {isFirstRun
-                ? "Bem-vindo! Configure suas chaves de API para começar. As chaves de AI e todos os dados são salvos no Gist privado — em qualquer outro dispositivo, basta informar o Token GitHub e o ID do Gist."
+                ? "Bem-vindo! Configure suas chaves de API para começar. Os dados ficam salvos em um Gist privado no seu GitHub."
                 : "Gerencie suas chaves de API e sincronização com GitHub Gist."}
             </p>
 
-            {/* GIST KEY SYNC NOTICE */}
-            {gistConfigured && (
-              <div className="gist-key-banner">
-                <span>🔒</span>
-                <span>As chaves de AI serão salvas criptografadas no seu Gist privado. Em outro dispositivo, basta informar o Token GitHub e o ID do Gist para restaurar tudo automaticamente.</span>
-              </div>
-            )}
-
-            <div className="modal-section" style={{marginTop: gistConfigured ? "1.2rem" : 0}}>
+            <div className="modal-section">
               <div className="modal-section-title">Oráculo de IA</div>
               <div className="field-row">
                 <label className="field-label">Chave DeepSeek</label>
                 <input className="field-input" type="password" placeholder="sk-..." value={form.deepseekKey} onChange={e=>set("deepseekKey",e.target.value)} />
                 <span className="field-hint">Obtenha em <a href="https://platform.deepseek.com/api_keys" target="_blank">platform.deepseek.com</a></span>
-                {gistConfigured && <span className="field-hint" style={{color:"#40c080",opacity:.9}}>✦ Salva no Gist — configure uma vez, funciona em qualquer dispositivo.</span>}
                 <div style={{display:"flex",alignItems:"center",gap:".5rem",marginTop:".2rem"}}>
                   <button className="btn btn-ghost" style={{padding:".28rem .7rem",fontSize:".78rem"}} onClick={()=>testAI("deepseek")} disabled={!form.deepseekKey||testing==="deepseek"}>
                     {testing==="deepseek"?"testando…":"Testar"}
@@ -417,7 +395,6 @@
                 <label className="field-label">Chave Anthropic (Claude)</label>
                 <input className="field-input" type="password" placeholder="sk-ant-..." value={form.anthropicKey} onChange={e=>set("anthropicKey",e.target.value)} />
                 <span className="field-hint">Obtenha em <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a></span>
-                {gistConfigured && <span className="field-hint" style={{color:"#40c080",opacity:.9}}>✦ Salva no Gist — configure uma vez, funciona em qualquer dispositivo.</span>}
                 <div style={{display:"flex",alignItems:"center",gap:".5rem",marginTop:".2rem"}}>
                   <button className="btn btn-ghost" style={{padding:".28rem .7rem",fontSize:".78rem"}} onClick={()=>testAI("anthropic")} disabled={!form.anthropicKey||testing==="anthropic"}>
                     {testing==="anthropic"?"testando…":"Testar"}
@@ -433,7 +410,6 @@
                 <label className="field-label">Token GitHub (gist scope)</label>
                 <input className="field-input" type="password" placeholder="ghp_..." value={form.githubToken} onChange={e=>set("githubToken",e.target.value)} />
                 <span className="field-hint">Crie em <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank">github.com/settings/tokens</a> — marque apenas o escopo <strong>gist</strong></span>
-                <span className="field-hint" style={{color:"#c8973a",marginTop:".25rem"}}>⚠ Este token fica apenas no localStorage local — nunca é enviado ao Gist.</span>
               </div>
               <div className="field-row">
                 <label className="field-label">ID do Gist (deixe vazio para criar um novo)</label>
@@ -497,9 +473,21 @@
       const [historico, setHistorico] = useState(() => lsGet(STORAGE_KEYS.historico, []));
 
       // ── MUNDOS state ──────────────────────────────────────────────────────────
-      const [mundos, setMundos] = useState(() => lsGet(STORAGE_KEYS.mundos, []));
+      const [mundos, setMundos] = useState(() => {
+        const loaded = lsGet(STORAGE_KEYS.mundos, []);
+        return loaded.map(m => ({
+          ...m,
+          npcs: Array.isArray(m.npcs) ? m.npcs : [],
+          locais: Array.isArray(m.locais) ? m.locais : [],
+          faccoes: Array.isArray(m.faccoes) ? m.faccoes : [],
+        }));
+      });
       const [activeMundoId, setActiveMundoId] = useState(() => lsGet(STORAGE_KEYS.activeMundo, null));
       const [editingMundo, setEditingMundo] = useState(null);
+      const [mundoEditTab, setMundoEditTab] = useState("lore"); const [sessoes, setSessoes] = useState({});
+      const [editingNPC, setEditingNPC] = useState(null);
+      const [editingLocal, setEditingLocal] = useState(null);
+      const [editingFaccao, setEditingFaccao] = useState(null); // null | objeto mundo
       const [isNewMundo, setIsNewMundo] = useState(false);
       const [mundoIngestText, setMundoIngestText] = useState("");
       const [mundoIngestLoading, setMundoIngestLoading] = useState(false);
@@ -510,12 +498,30 @@
       const updateMundos = (v) => { setMundos(v); lsSet(STORAGE_KEYS.mundos, v); };
       const setActiveMundoAndSave = (id) => { setActiveMundoId(id); lsSet(STORAGE_KEYS.activeMundo, id); };
 
+      const normalizeMundo = (m) => {
+        if (!m) m = {};
+        if (!Array.isArray(m.npcs)) m.npcs = [];
+        if (!Array.isArray(m.locais)) m.locais = [];
+        if (!Array.isArray(m.faccoes)) m.faccoes = [];
+        if (typeof m.npcs === 'string') m.npcs = [];
+        if (typeof m.locais === 'string') m.locais = [];
+        if (typeof m.faccoes === 'string') m.faccoes = [];
+        if (typeof m.sessoes !== 'string') m.sessoes = '';
+        return m;
+      };
+      
       const saveMundo = (m) => {
         if (!m.nome.trim()) return;
+        const normalized = {
+          ...m,
+          npcs: Array.isArray(m.npcs) ? m.npcs : [],
+          locais: Array.isArray(m.locais) ? m.locais : [],
+          faccoes: Array.isArray(m.faccoes) ? m.faccoes : [],
+        };
         if (isNewMundo) {
-          updateMundos([...mundos, m]);
+          updateMundos([...mundos, normalized]);
         } else {
-          updateMundos(mundos.map(x => x.id === m.id ? m : x));
+          updateMundos(mundos.map(x => x.id === normalized.id ? normalized : x));
         }
         setEditingMundo(null); setIsNewMundo(false);
       };
@@ -530,22 +536,24 @@
       const ingestIntoMundo = async () => {
         if (!mundoIngestText.trim() || !activeMundo) return;
         setMundoIngestLoading(true); setMundoIngestResult(null);
-        const prompt = `Você é um assistente de worldbuilding para RPG. O mestre compartilhou informações sobre seu mundo. Extraia e organize essas informações nas categorias abaixo e retorne APENAS JSON válido, sem markdown:
+        const serializeArray = (arr) => {
+          if (!Array.isArray(arr)) return arr || "";
+          return arr.map(item => item.nome || item || "").filter(Boolean).join(", ");
+        };
+        const prompt = `Você é um assistente de worldbuilding para RPG. O mestre compartilhou informações. Extraia e retorne APENAS JSON válido:
+{"lore":"texto","locais":"itens","faccoes":"itens","npcs":"itens","restricoes":"texto","resumo":"frase"}
 
-{"lore":"lore e história extraída (adicione ao existente se houver)","locais":"locais e regiões extraídos","faccoes":"facções e organizações extraídas","npcs":"NPCs importantes extraídos","restricoes":"restrições do mundo extraídas (sem magia, tecnologia, etc)","resumo":"1 frase resumindo a nova informação adicionada"}
+Mundo: ${activeMundo.nome}
+Descricao: ${activeMundo.descricao || ""}
+Lore: ${(activeMundo.lore || "").substring(0,300)}
+Locais: ${serializeArray(activeMundo.locais)}
+Faccoes: ${serializeArray(activeMundo.faccoes)}
+NPCs: ${serializeArray(activeMundo.npcs)}
+Restricoes: ${(activeMundo.restricoes || "").substring(0,150)}
 
-Mundo atual — ${activeMundo.nome}:
-${activeMundo.descricao ? "Descrição: "+activeMundo.descricao : ""}
-${activeMundo.lore ? "Lore atual: "+activeMundo.lore.slice(0,400) : ""}
-${activeMundo.locais ? "Locais atuais: "+activeMundo.locais.slice(0,300) : ""}
-${activeMundo.faccoes ? "Facções atuais: "+activeMundo.faccoes.slice(0,300) : ""}
-${activeMundo.npcs ? "NPCs atuais: "+activeMundo.npcs.slice(0,300) : ""}
-${activeMundo.restricoes ? "Restrições atuais: "+activeMundo.restricoes.slice(0,200) : ""}
+Nova info: "${mundoIngestText}"
 
-Nova informação a incorporar:
-"${mundoIngestText}"
-
-Funda com o que já existe (não apague, expanda). Se uma categoria não tiver informação nova, retorne string vazia "".`;
+Expanda (não apague). Se vazio, retorne "".`;
         try {
           const res = await callAI(prompt, 1200);
           const parsed = JSON.parse(res.replace(/```json|```/g,"").trim());
@@ -558,12 +566,18 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
 
       const applyMundoIngest = () => {
         if (!mundoIngestResult || mundoIngestResult._error || !activeMundo) return;
+        const parseArrayFromString = (str, existingArray) => {
+          const arr = Array.isArray(existingArray) ? existingArray : [];
+          if (!str || !str.trim()) return arr;
+          const items = str.split(',').map(s => s.trim()).filter(Boolean);
+          return [...arr, ...items.map(nome => ({id: Date.now().toString() + Math.random(), nome}))];
+        };
         const updated = {
           ...activeMundo,
           lore: [activeMundo.lore, mundoIngestResult.lore].filter(Boolean).join("\n").trim(),
-          locais: [activeMundo.locais, mundoIngestResult.locais].filter(Boolean).join("\n").trim(),
-          faccoes: [activeMundo.faccoes, mundoIngestResult.faccoes].filter(Boolean).join("\n").trim(),
-          npcs: [activeMundo.npcs, mundoIngestResult.npcs].filter(Boolean).join("\n").trim(),
+          locais: parseArrayFromString(mundoIngestResult.locais, activeMundo.locais),
+          faccoes: parseArrayFromString(mundoIngestResult.faccoes, activeMundo.faccoes),
+          npcs: parseArrayFromString(mundoIngestResult.npcs, activeMundo.npcs),
           restricoes: [activeMundo.restricoes, mundoIngestResult.restricoes].filter(Boolean).join("\n").trim(),
         };
         updateMundos(mundos.map(m => m.id === updated.id ? updated : m));
@@ -587,7 +601,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
       const [sugestoes, setSugestoes] = useState(null);
       const [justUnlocked, setJustUnlocked] = useState(null);
 
-      const [syncStatus, setSyncStatus] = useState("local");
+      const [syncStatus, setSyncStatus] = useState("local"); // local | syncing | synced | error
       const [syncMsg, setSyncMsg] = useState("");
       const syncRef = useRef(null);
 
@@ -606,24 +620,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
           if (data.tags) { setTags(data.tags); lsSet(STORAGE_KEYS.tags, data.tags); }
           if (data.historico) { setHistorico(data.historico); lsSet(STORAGE_KEYS.historico, data.historico); }
           if (data.mundos) { setMundos(data.mundos); lsSet(STORAGE_KEYS.mundos, data.mundos); }
-          // ── PATCH: restore AI keys from Gist ──────────────────────────────
-          if (data.apiKeys) {
-            const current = loadCfg();
-            // Only restore keys that are missing locally — don't overwrite if user just typed new ones
-            const merged = {
-              ...current,
-              anthropicKey: current.anthropicKey || data.apiKeys.anthropicKey || '',
-              deepseekKey: current.deepseekKey || data.apiKeys.deepseekKey || '',
-              provider: current.provider || data.apiKeys.provider || 'deepseek',
-              contextoRico: current.contextoRico !== undefined ? current.contextoRico : (data.apiKeys.contextoRico !== false),
-            };
-            saveCfg(merged);
-            setCfg(merged);
-            setProvider(merged.provider);
-          }
-          // ─────────────────────────────────────────────────────────────────
-          setSyncStatus("synced");
-          setSyncMsg(data.apiKeys ? "Sincronizado ✦ chaves restauradas" : "Sincronizado");
+          setSyncStatus("synced"); setSyncMsg("Sincronizado");
         } catch(e) {
           setSyncStatus("error"); setSyncMsg("Erro: " + e.message);
         }
@@ -634,21 +631,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
         if (!c.githubToken || !c.gistId) return;
         setSyncStatus("syncing");
         try {
-          // ── PATCH: include AI keys in Gist payload ────────────────────────
-          await gistWrite(c.githubToken, c.gistId, {
-            temas: tObj,
-            cenarios: cObj,
-            tags: tgObj,
-            historico: hObj,
-            mundos: mObj,
-            apiKeys: {
-              anthropicKey: c.anthropicKey || '',
-              deepseekKey: c.deepseekKey || '',
-              provider: c.provider || 'deepseek',
-              contextoRico: c.contextoRico !== false,
-            }
-          });
-          // ─────────────────────────────────────────────────────────────────
+          await gistWrite(c.githubToken, c.gistId, { temas: tObj, cenarios: cObj, tags: tgObj, historico: hObj, mundos: mObj });
           setSyncStatus("synced"); setSyncMsg("Salvo no Gist");
         } catch(e) {
           setSyncStatus("error"); setSyncMsg("Erro ao salvar: " + e.message);
@@ -670,12 +653,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
         saveCfg(newCfg);
         setCfg(newCfg);
         setProvider(newCfg.provider || provider);
-        // After saving config, push keys to Gist immediately
-        if (newCfg.githubToken && newCfg.gistId) {
-          syncFromGist();
-          // Also write current state with new keys
-          setTimeout(() => syncToGist(temas, cenarios, tags, historico, mundos), 500);
-        }
+        if (newCfg.githubToken && newCfg.gistId) syncFromGist();
       };
 
       const providerKey = provider === "deepseek" ? cfg.deepseekKey : cfg.anthropicKey;
@@ -790,16 +768,27 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
         setSugestoes(p => ({...p, [type]:p[type].filter(x=>x!==label)}));
       };
 
+
       const buildMasterContext = () => {
         if (!cfg.contextoRico) return "";
         const parts = [];
+
+        // Estilo: top 4 temas mais usados
         const topTemas = [...temas].filter(t=>t.uses>0).sort((a,b)=>b.uses-a.uses).slice(0,4);
         if (topTemas.length) parts.push("Estilo do mestre — temas preferidos: " + topTemas.map(t=>t.label).join(", "));
+
+        // Estilo: top 4 tags mais usadas
         const topTags = [...tags].filter(t=>t.uses>0).sort((a,b)=>b.uses-a.uses).slice(0,4);
         if (topTags.length) parts.push("Tags mais frequentes: " + topTags.map(t=>t.label).join(", "));
-        const recentSeeds = historico.filter(h => activeMundo ? h.mundo === activeMundo.nome : true).slice(0, 3);
+
+        // Seeds recentes — filtradas pelo mundo ativo se houver
+        const recentSeeds = historico
+          .filter(h => activeMundo ? h.mundo === activeMundo.nome : true)
+          .slice(0, 3);
+
         if (recentSeeds.length) {
           const resumos = recentSeeds.map(h => {
+            // Extrai título: linha após "## Título" que não seja header
             const lines = h.text.split("\n");
             const tituloIdx = lines.findIndex(l => l.match(/^##\s*T[ií]tulo/i));
             let titulo = h.tema || "Aventura";
@@ -807,6 +796,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
               const proxLinha = lines.slice(tituloIdx+1).find(l => l.trim() && !l.startsWith("#"));
               if (proxLinha) titulo = proxLinha.trim();
             }
+            // Extrai premissa: primeira linha de parágrafo após "## Premissa"
             const premissaIdx = lines.findIndex(l => l.match(/^##\s*Premissa/i));
             let premissa = "";
             if (premissaIdx >= 0) {
@@ -820,12 +810,44 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
             : "Seeds recentes geradas (EVITE repetir estas histórias)";
           parts.push(label + ":\n" + resumos.join("\n"));
         }
+
+        // Aviso de não repetição explícito
         const totalSeeds = historico.filter(h => activeMundo ? h.mundo === activeMundo.nome : true).length;
         if (totalSeeds > 3) {
           parts.push("Total de seeds já geradas" + (activeMundo?" neste mundo":"") + ": " + totalSeeds + ". Varie o tipo de conflito, o ponto de partida e os antagonistas.");
         }
+
         if (!parts.length) return "";
         return "\n\n━━ MEMÓRIA DO MESTRE ━━\n" + parts.join("\n") + "\n━━━━━━━━━━━━━━━━━━━━━━";
+      };
+
+      const buildMundoContext = (mundo) => {
+        if (!mundo) return "";
+        const serializeArray = (arr) => {
+          if (!Array.isArray(arr)) return "";
+          return arr.map(item => item.nome || item || "").filter(Boolean).join(", ");
+        };
+        let ctx = `
+=== CONTEXTO DO MUNDO ATIVO: "${mundo.nome}" ===`;
+        if (mundo.descricao) ctx += `
+Descrição: ${mundo.descricao}`;
+        if (mundo.lore) ctx += `
+Lore: ${mundo.lore.substring(0, 600)}`;
+        const locaisStr = serializeArray(mundo.locais);
+        if (locaisStr) ctx += `
+Locais: ${locaisStr}`;
+        const faccoesStr = serializeArray(mundo.faccoes);
+        if (faccoesStr) ctx += `
+Facções: ${faccoesStr}`;
+        const npcsStr = serializeArray(mundo.npcs);
+        if (npcsStr) ctx += `
+NPCs: ${npcsStr}`;
+        if (mundo.restricoes) ctx += `
+RESTRIÇÕES: ${mundo.restricoes}`; if (mundo.sessoes) ctx += `
+SESSÕES ANTERIORES: ${mundo.sessoes.substring(0, 400)}`;
+        ctx += `
+IMPORTANTE: Use os locais, facções e NPCs listados quando relevante.`;
+        return ctx;
       };
 
       const generateSeed = async () => {
@@ -841,16 +863,7 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
 - Elementos Requeridos (Tags): ${selTags.length>0?selTags.map(x=>x.label).join(", "):"Livre"}
 ${dica.trim()?`- DIRETRIZ ESPECÍFICA DO MESTRE: ${dica}`:""}
 ${buildMasterContext()}
-${activeMundo ? `
-━━ CONTEXTO DO MUNDO ATIVO: "${activeMundo.nome}" ━━
-${activeMundo.descricao ? "Descrição: "+activeMundo.descricao : ""}
-${activeMundo.lore ? "Lore e história: "+activeMundo.lore.slice(0,600) : ""}
-${activeMundo.locais ? "Locais e regiões existentes: "+activeMundo.locais.slice(0,400) : ""}
-${activeMundo.faccoes ? "Facções e organizações: "+activeMundo.faccoes.slice(0,400) : ""}
-${activeMundo.npcs ? "NPCs importantes: "+activeMundo.npcs.slice(0,400) : ""}
-${activeMundo.restricoes ? "RESTRIÇÕES DO MUNDO (respeite obrigatoriamente): "+activeMundo.restricoes : ""}
-IMPORTANTE: Toda a seed deve ser ambientada neste mundo específico. Use os locais, facções e NPCs listados quando relevante. Respeite rigorosamente as restrições.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ""}
+${buildMundoContext(activeMundo)}
 
 A resposta DEVE usar exatamente os títulos abaixo com "## ":
 ## Título
@@ -921,6 +934,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
             faccoes: [mundo.faccoes, parsed.faccoes].filter(Boolean).join("\n\n").trim(),
           };
           updateMundos(mundos.map(m=>m.id===mundo.id?updated:m));
+          // Também vincula a seed ao mundo se ainda não estiver
           if (!seed.mundoId) vincularSeedMundo(seed.id, mundo.id);
           alert("Incorporado com sucesso ao lore de \"" + mundo.nome + "\"!");
         } catch(e) {
@@ -929,6 +943,85 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
         setIncorporandoId(null);
       };
 
+      const addNPC = (data) => {
+        if (!editingMundo) return;
+        const m = normalizeMundo({...editingMundo});
+        if (!Array.isArray(m.npcs)) m.npcs = [];
+        const newNPC = {...data, id: Date.now().toString()};
+        m.npcs.push(newNPC);
+        setEditingMundo(m);
+        setEditingNPC(newNPC);
+        setMundoEditTab("npcs");
+      };
+      const updateNPC = (id, data) => {
+        if (!editingMundo || !id) return;
+        const m = normalizeMundo({...editingMundo});
+        if (Array.isArray(m.npcs)) {
+          m.npcs = m.npcs.map(n => n.id === id ? {...n, ...data} : n);
+          setEditingMundo(m);
+        }
+      };
+      const deleteNPC = (id) => {
+        if (!editingMundo || !id) return;
+        const m = normalizeMundo({...editingMundo});
+        if (Array.isArray(m.npcs)) {
+          m.npcs = m.npcs.filter(n => n.id !== id);
+          setEditingMundo(m);
+        }
+      };
+      const addLocal = (data) => {
+        if (!editingMundo) return;
+        const m = normalizeMundo({...editingMundo});
+        if (!Array.isArray(m.locais)) m.locais = [];
+        const newLocal = {...data, id: Date.now().toString()};
+        m.locais.push(newLocal);
+        setEditingMundo(m);
+        setEditingLocal(newLocal);
+        setMundoEditTab("locais");
+      };
+      const updateLocal = (id, data) => {
+        if (!editingMundo || !id) return;
+        const m = normalizeMundo({...editingMundo});
+        if (Array.isArray(m.locais)) {
+          m.locais = m.locais.map(l => l.id === id ? {...l, ...data} : l);
+          setEditingMundo(m);
+        }
+      };
+      const deleteLocal = (id) => {
+        if (!editingMundo || !id) return;
+        const m = normalizeMundo({...editingMundo});
+        if (Array.isArray(m.locais)) {
+          m.locais = m.locais.filter(l => l.id !== id);
+          setEditingMundo(m);
+        }
+      };
+      const addFaccao = (data) => {
+        if (!editingMundo) return;
+        const m = normalizeMundo({...editingMundo});
+        if (!Array.isArray(m.faccoes)) m.faccoes = [];
+        const newFaccao = {...data, id: Date.now().toString()};
+        m.faccoes.push(newFaccao);
+        setEditingMundo(m);
+        setEditingFaccao(newFaccao);
+        setMundoEditTab("faccoes");
+      };
+      const updateFaccao = (id, data) => {
+        if (!editingMundo || !id) return;
+        const m = normalizeMundo({...editingMundo});
+        if (Array.isArray(m.faccoes)) {
+          m.faccoes = m.faccoes.map(f => f.id === id ? {...f, ...data} : f);
+          setEditingMundo(m);
+        }
+      };
+      const deleteFaccao = (id) => {
+        if (!editingMundo || !id) return;
+        const m = normalizeMundo({...editingMundo});
+        if (Array.isArray(m.faccoes)) {
+          m.faccoes = m.faccoes.filter(f => f.id !== id);
+          setEditingMundo(m);
+        }
+      };
+      
       const resetAll = () => {
         if (!confirm("Deseja apagar todas as customizações do Grimório?\n(As chaves de API não serão apagadas)")) return;
         updateTemas(DEFAULT_TEMAS); updateCenarios(DEFAULT_CENARIOS);
@@ -1012,19 +1105,27 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
               {/* ── TAB GERAR ── */}
               {tab==="gerar" && (
                 <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
+
+                  {/* Mundo ativo banner */}
                   {activeMundo ? (
                     <div className="world-seed-banner">
                       <span>🌍</span>
                       <span>Mundo ativo: <strong>{activeMundo.nome}</strong></span>
                       {activeMundo.restricoes && <span style={{fontSize:".8rem",opacity:.7,marginLeft:".3rem"}}>· restrições aplicadas</span>}
-                      <button className="btn btn-ghost" style={{marginLeft:"auto",padding:".22rem .65rem",fontSize:".78rem"}} onClick={()=>setTab("mundos")}>Gerenciar</button>
-                      <button className="btn btn-ghost" style={{padding:".22rem .65rem",fontSize:".78rem",color:"#7a5040",borderColor:"rgba(180,80,40,.25)"}} onClick={()=>setActiveMundoAndSave(null)}>✕ Desativar</button>
+                      <button className="btn btn-ghost" style={{marginLeft:"auto",padding:".22rem .65rem",fontSize:".78rem"}} onClick={()=>setTab("mundos")}>
+                        Gerenciar
+                      </button>
+                      <button className="btn btn-ghost" style={{padding:".22rem .65rem",fontSize:".78rem",color:"#7a5040",borderColor:"rgba(180,80,40,.25)"}} onClick={()=>setActiveMundoAndSave(null)}>
+                        ✕ Desativar
+                      </button>
                     </div>
                   ) : mundos.length > 0 ? (
                     <div className="world-seed-banner" style={{background:"rgba(100,80,40,.06)",borderColor:"rgba(150,110,50,.22)"}}>
                       <span style={{opacity:.5}}>🌍</span>
                       <span style={{color:"var(--parchment-dim)",fontSize:".9rem"}}>Nenhum mundo ativo — gerando seed genérica.</span>
-                      <button className="btn btn-ghost" style={{marginLeft:"auto",padding:".22rem .65rem",fontSize:".78rem"}} onClick={()=>setTab("mundos")}>Selecionar mundo</button>
+                      <button className="btn btn-ghost" style={{marginLeft:"auto",padding:".22rem .65rem",fontSize:".78rem"}} onClick={()=>setTab("mundos")}>
+                        Selecionar mundo
+                      </button>
                     </div>
                   ) : null}
 
@@ -1111,6 +1212,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                         </div>
                       </div>
                       <div className="result-content">{renderContent(resultado)}</div>
+
                       {sugestoes && (sugestoes.temas?.length>0||sugestoes.cenarios?.length>0||sugestoes.tags?.length>0) && (
                         <div className="ingested-preview">
                           <div className="ingested-title">✨ Elementos Descobertos nesta história</div>
@@ -1121,6 +1223,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                           </div>
                         </div>
                       )}
+
                       <div className="result-actions">
                         <button className="btn btn-ghost" onClick={()=>navigator.clipboard.writeText(resultado)}>⎘ Copiar</button>
                         <button className="btn btn-ghost" onClick={generateSeed} disabled={loading}>↺ Regerar</button>
@@ -1133,6 +1236,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
               {/* ── TAB IDEIAS ── */}
               {tab==="ideias" && (
                 <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
+
                   <div className="idea-area">
                     <div className="section-title">💡 Alquimia de Ideias Livres</div>
                     {activeMundo && (
@@ -1168,6 +1272,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                           "{ideiaExtraida.resumo}"
                         </p>
                       )}
+
                       {["temas","cenarios","tags"].map(tipo => {
                         const items = ideiaExtraida[tipo] || [];
                         if (!items.length) return null;
@@ -1209,9 +1314,11 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                           </div>
                         );
                       })}
+
                       {!ideiaExtraida.temas?.length && !ideiaExtraida.cenarios?.length && !ideiaExtraida.tags?.length && (
                         <p style={{fontStyle:"italic",color:"var(--parchment-dim)",fontSize:".9rem"}}>Nenhum elemento novo encontrado — todos já existem no grimório.</p>
                       )}
+
                       {(ideiaExtraida.temas?.length > 0 || ideiaExtraida.cenarios?.length > 0 || ideiaExtraida.tags?.length > 0) && (
                         <div style={{display:"flex",alignItems:"center",gap:".8rem",marginTop:"1.2rem",paddingTop:"1rem",borderTop:"1px solid rgba(200,151,58,.15)",flexWrap:"wrap"}}>
                           <button className="btn btn-primary" style={{padding:".6rem 1.6rem",fontSize:".88rem"}} onClick={confirmarTudo}>
@@ -1224,12 +1331,15 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                       )}
                     </div>
                   )}
+
                 </div>
               )}
 
               {/* ── TAB MUNDOS ── */}
               {tab==="mundos" && (
                 <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
+
+                  {/* Edit / New Form */}
                   {editingMundo ? (
                     <div className="world-edit-form">
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"-.4rem"}}>
@@ -1238,39 +1348,118 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                         </span>
                         <button className="btn btn-ghost" style={{padding:".2rem .6rem",fontSize:".78rem"}} onClick={()=>{setEditingMundo(null);setIsNewMundo(false);}}>✕ Cancelar</button>
                       </div>
+
                       <div className="wf-row">
                         <label className="wf-label">Nome do Mundo *</label>
                         <input className="wf-input" placeholder="Ex: Forgotten Realms, Eberron, Westeros, Runeterra..." value={editingMundo.nome} onChange={e=>setEditingMundo(p=>({...p,nome:e.target.value}))}/>
                       </div>
+
                       <div className="wf-row">
                         <label className="wf-label">Descrição Geral</label>
                         <textarea className="wf-textarea" rows={2} placeholder="Uma frase ou parágrafo descrevendo a essência deste mundo..." value={editingMundo.descricao} onChange={e=>setEditingMundo(p=>({...p,descricao:e.target.value}))}/>
                       </div>
+
                       <div className="wf-section-label">Restrições</div>
                       <div className="wf-row">
                         <label className="wf-label">Restrições do Mundo</label>
                         <textarea className="wf-textarea" rows={2} placeholder="Ex: Sem magia arcana; tecnologia limitada a pólvora; mortos-vivos são controlados pela Igreja..." value={editingMundo.restricoes} onChange={e=>setEditingMundo(p=>({...p,restricoes:e.target.value}))}/>
                         <span className="wf-hint">⚠ Serão inseridas como obrigatórias no prompt de geração.</span>
                       </div>
-                      <div className="wf-section-label">Conteúdo do Mundo</div>
-                      <div className="wf-grid">
-                        <div className="wf-row">
-                          <label className="wf-label">Lore / História</label>
-                          <textarea className="wf-textarea" rows={4} placeholder="Mitos de criação, eventos históricos, eras passadas..." value={editingMundo.lore} onChange={e=>setEditingMundo(p=>({...p,lore:e.target.value}))}/>
-                        </div>
-                        <div className="wf-row">
-                          <label className="wf-label">Locais e Regiões</label>
-                          <textarea className="wf-textarea" rows={4} placeholder="Cidades, dungeons, países, pontos de interesse..." value={editingMundo.locais} onChange={e=>setEditingMundo(p=>({...p,locais:e.target.value}))}/>
-                        </div>
-                        <div className="wf-row">
-                          <label className="wf-label">Facções e Organizações</label>
-                          <textarea className="wf-textarea" rows={4} placeholder="Guildas, impérios, cultos, ordens, alianças..." value={editingMundo.faccoes} onChange={e=>setEditingMundo(p=>({...p,faccoes:e.target.value}))}/>
-                        </div>
-                        <div className="wf-row">
-                          <label className="wf-label">NPCs Importantes</label>
-                          <textarea className="wf-textarea" rows={4} placeholder="Nomes, funções, motivações de personagens marcantes..." value={editingMundo.npcs} onChange={e=>setEditingMundo(p=>({...p,npcs:e.target.value}))}/>
-                        </div>
+
+                      <div className="wf-section-label">Conteúdo do Mundo (v8 - CRUDs)</div>
+                      <div style={{display:"flex", gap:"0.5rem", borderBottom:"1px solid rgba(200,151,58,0.2)", marginBottom:"1rem", flexWrap:"wrap"}}>
+                        {["lore","npcs","locais","faccoes","sessoes"].map(tab => (
+                          <button key={tab} className="btn" style={{background: mundoEditTab === tab ? "var(--gold)" : "transparent", color: mundoEditTab === tab ? "#0a0806" : "var(--gold)", padding: "0.6rem 1.2rem", fontSize: "0.85rem", border: "none", cursor: "pointer", transition: "all 0.2s", borderBottom: mundoEditTab === tab ? "3px solid var(--gold)" : "none"}} onClick={() => setMundoEditTab(tab)}>
+                            {tab.toUpperCase()}
+                          </button>
+                        ))}
                       </div>
+                      {mundoEditTab === "lore" && (
+                        <div className="wf-row">
+                          <label className="wf-label">Lore / Historia</label>
+                          <textarea className="wf-textarea" rows={4} placeholder="Mitos de criacao, eventos historicos..." value={editingMundo.lore} onChange={e=>setEditingMundo(p=>({...p,lore:e.target.value}))}/>
+                        </div>
+                      )}
+                      {mundoEditTab === "npcs" && editingMundo && (
+                        <div>
+                          <button className="btn btn-primary" style={{marginBottom:"1rem", padding:"0.6rem 1.2rem", fontSize:"0.85rem"}} onClick={()=>addNPC({nome:"", profissao:"", raca:"", descricao:""})}>+ Novo NPC</button>
+                          <div style={{display:"flex", flexDirection:"column", gap:"0.6rem"}}>
+                            {(editingMundo.npcs && Array.isArray(editingMundo.npcs) ? editingMundo.npcs : []).map(npc => (
+                              <div key={npc.id} style={{background:"rgba(200,151,58,0.1)", border:"1px solid rgba(200,151,58,0.2)", padding:"0.8rem", borderRadius:"3px", cursor:"pointer"}} onClick={()=>setEditingNPC(npc)}>
+                                <div style={{fontWeight:"600", color:"var(--gold)"}}>{npc.nome || "[Sem nome]"}</div>
+                                <div style={{fontSize:"0.85rem", color:"var(--parchment-dim)", marginTop:"0.3rem"}}>{npc.profissao || "NPC"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {mundoEditTab === "locais" && editingMundo && (
+                        <div>
+                          <button className="btn btn-primary" style={{marginBottom:"1rem", padding:"0.6rem 1.2rem", fontSize:"0.85rem"}} onClick={()=>addLocal({nome:"", tipo:"", descricao:""})}>+ Novo Local</button>
+                          <div style={{display:"flex", flexDirection:"column", gap:"0.6rem"}}>
+                            {(editingMundo.locais && Array.isArray(editingMundo.locais) ? editingMundo.locais : []).map(local => (
+                              <div key={local.id} style={{background:"rgba(200,151,58,0.1)", border:"1px solid rgba(200,151,58,0.2)", padding:"0.8rem", borderRadius:"3px", cursor:"pointer"}} onClick={()=>setEditingLocal(local)}>
+                                <div style={{fontWeight:"600", color:"var(--gold)"}}>{local.nome || "[Sem nome]"}</div>
+                                <div style={{fontSize:"0.85rem", color:"var(--parchment-dim)", marginTop:"0.3rem"}}>{local.tipo || "Local"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {mundoEditTab === "faccoes" && editingMundo && (
+                        <div>
+                          <button className="btn btn-primary" style={{marginBottom:"1rem", padding:"0.6rem 1.2rem", fontSize:"0.85rem"}} onClick={()=>addFaccao({nome:"", descricao:""})}>+ Nova Faccao</button>
+                          <div style={{display:"flex", flexDirection:"column", gap:"0.6rem"}}>
+                            {(editingMundo.faccoes && Array.isArray(editingMundo.faccoes) ? editingMundo.faccoes : []).map(faccao => (
+                              <div key={faccao.id} style={{background:"rgba(200,151,58,0.1)", border:"1px solid rgba(200,151,58,0.2)", padding:"0.8rem", borderRadius:"3px", cursor:"pointer"}} onClick={()=>setEditingFaccao(faccao)}>
+                                <div style={{fontWeight:"600", color:"var(--gold)"}}>{faccao.nome || "[Sem nome]"}</div>
+                                <div style={{fontSize:"0.85rem", color:"var(--parchment-dim)", marginTop:"0.3rem"}}>{(faccao.descricao || "").substring(0, 50)}...</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {mundoEditTab === "sessoes" && editingMundo && (<div className="wf-row"><label className="wf-label">Resumo das Sessoes Jogadas</label><textarea className="wf-textarea" rows={6} placeholder="Sessao 1: ...\n\nSessao 2: ..." value={editingMundo.sessoes || ""} onChange={e=>setEditingMundo(p=>({...p,sessoes:e.target.value}))}/><p style={{color:"var(--parchment-dim)",fontSize:"0.85rem",marginTop:"0.5rem"}}>Guarde aqui o relato de cada sessao para referencia futura</p></div>)}
+                      {editingNPC && mundoEditTab === "npcs" && (
+                        <div className="wf-row" style={{background:"rgba(200,151,58,0.08)", padding:"1rem", borderRadius:"4px", border:"1px solid rgba(200,151,58,0.2)", marginTop:"1rem"}}>
+                          <label className="wf-label">Editando NPC: {editingNPC.nome}</label>
+                          <input className="wf-input" type="text" placeholder="Nome" value={editingNPC.nome} onChange={e=>setEditingNPC(p=>({...p,nome:e.target.value}))}/>
+                          <input className="wf-input" type="text" placeholder="Profissao" value={editingNPC.profissao} onChange={e=>setEditingNPC(p=>({...p,profissao:e.target.value}))}/>
+                          <input className="wf-input" type="text" placeholder="Raca" value={editingNPC.raca} onChange={e=>setEditingNPC(p=>({...p,raca:e.target.value}))}/>
+                          <textarea className="wf-textarea" rows={2} placeholder="Descricao" value={editingNPC.descricao} onChange={e=>setEditingNPC(p=>({...p,descricao:e.target.value}))}/>
+                          <div style={{display:"flex", gap:"0.5rem", marginTop:"0.5rem"}}>
+                            <button className="btn btn-primary" onClick={()=>{updateNPC(editingNPC.id, editingNPC); setEditingNPC(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Salvar</button>
+                            <button className="btn btn-ingest" onClick={()=>{deleteNPC(editingNPC.id); setEditingNPC(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Deletar</button>
+                            <button className="btn" style={{background:"#666", padding:"0.6rem 1rem", fontSize:"0.85rem", border:"none", cursor:"pointer", color:"white"}} onClick={()=>setEditingNPC(null)}>Cancelar</button>
+                          </div>
+                        </div>
+                      )}
+                      {editingLocal && mundoEditTab === "locais" && (
+                        <div className="wf-row" style={{background:"rgba(200,151,58,0.08)", padding:"1rem", borderRadius:"4px", border:"1px solid rgba(200,151,58,0.2)", marginTop:"1rem"}}>
+                          <label className="wf-label">Editando Local: {editingLocal.nome}</label>
+                          <input className="wf-input" type="text" placeholder="Nome" value={editingLocal.nome} onChange={e=>setEditingLocal(p=>({...p,nome:e.target.value}))}/>
+                          <input className="wf-input" type="text" placeholder="Tipo" value={editingLocal.tipo} onChange={e=>setEditingLocal(p=>({...p,tipo:e.target.value}))}/>
+                          <textarea className="wf-textarea" rows={2} placeholder="Descricao" value={editingLocal.descricao} onChange={e=>setEditingLocal(p=>({...p,descricao:e.target.value}))}/>
+                          <div style={{display:"flex", gap:"0.5rem", marginTop:"0.5rem"}}>
+                            <button className="btn btn-primary" onClick={()=>{updateLocal(editingLocal.id, editingLocal); setEditingLocal(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Salvar</button>
+                            <button className="btn btn-ingest" onClick={()=>{deleteLocal(editingLocal.id); setEditingLocal(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Deletar</button>
+                            <button className="btn" style={{background:"#666", padding:"0.6rem 1rem", fontSize:"0.85rem", border:"none", cursor:"pointer", color:"white"}} onClick={()=>setEditingLocal(null)}>Cancelar</button>
+                          </div>
+                        </div>
+                      )}
+                      {editingFaccao && mundoEditTab === "faccoes" && (
+                        <div className="wf-row" style={{background:"rgba(200,151,58,0.08)", padding:"1rem", borderRadius:"4px", border:"1px solid rgba(200,151,58,0.2)", marginTop:"1rem"}}>
+                          <label className="wf-label">Editando Faccao: {editingFaccao.nome}</label>
+                          <input className="wf-input" type="text" placeholder="Nome" value={editingFaccao.nome} onChange={e=>setEditingFaccao(p=>({...p,nome:e.target.value}))}/>
+                          <textarea className="wf-textarea" rows={2} placeholder="Descricao" value={editingFaccao.descricao} onChange={e=>setEditingFaccao(p=>({...p,descricao:e.target.value}))}/>
+                          <div style={{display:"flex", gap:"0.5rem", marginTop:"0.5rem"}}>
+                            <button className="btn btn-primary" onClick={()=>{updateFaccao(editingFaccao.id, editingFaccao); setEditingFaccao(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Salvar</button>
+                            <button className="btn btn-ingest" onClick={()=>{deleteFaccao(editingFaccao.id); setEditingFaccao(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Deletar</button>
+                            <button className="btn" style={{background:"#666", padding:"0.6rem 1rem", fontSize:"0.85rem", border:"none", cursor:"pointer", color:"white"}} onClick={()=>setEditingFaccao(null)}>Cancelar</button>
+                          </div>
+                        </div>
+                      )}
+
                       <div style={{display:"flex",gap:".65rem",marginTop:".4rem",flexWrap:"wrap"}}>
                         <button className="btn btn-primary" style={{padding:".75rem 2rem",fontSize:".88rem"}} disabled={!editingMundo.nome.trim()} onClick={()=>saveMundo(editingMundo)}>
                           ✓ Salvar Mundo
@@ -1284,6 +1473,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                     </div>
                   ) : (
                     <>
+                      {/* World list header */}
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:".6rem"}}>
                         <span style={{fontFamily:"'Cinzel Decorative',serif",fontSize:".65rem",letterSpacing:".15em",color:"var(--gold)",textTransform:"uppercase"}}>
                           {mundos.length} Mundo{mundos.length!==1?"s":""} Catalogado{mundos.length!==1?"s":""}
@@ -1292,14 +1482,18 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                           + Criar Novo Mundo
                         </button>
                       </div>
+
+                      {/* Active world summary */}
                       {activeMundo && (
                         <div className="world-active-bar">
                           <span className="world-active-label">🌍 Ativo</span>
                           <span className="world-name-display">{activeMundo.nome}</span>
-                          <button className="btn btn-ghost" style={{padding:".25rem .7rem",fontSize:".8rem"}} onClick={()=>{setEditingMundo({...activeMundo});setIsNewMundo(false);}}>✏ Editar</button>
+                          <button className="btn btn-ghost" style={{padding:".25rem .7rem",fontSize:".8rem"}} onClick={()=>{const m = normalizeMundo({...activeMundo}); setEditingMundo(m); setMundoEditTab('lore'); setIsNewMundo(false);}}>✏ Editar</button>
                           <button className="btn btn-ghost" style={{padding:".25rem .7rem",fontSize:".8rem",color:"#7a5040",borderColor:"rgba(180,80,40,.25)"}} onClick={()=>setActiveMundoAndSave(null)}>Desativar</button>
                         </div>
                       )}
+
+                      {/* World list */}
                       {mundos.length === 0 ? (
                         <div className="empty-state">
                           <div style={{fontSize:"2rem",marginBottom:"1rem"}}>🗺️</div>
@@ -1326,7 +1520,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                                 </div>
                               </div>
                               <div className="world-card-actions" onClick={e=>e.stopPropagation()}>
-                                <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".82rem"}} onClick={()=>{setEditingMundo({...m});setIsNewMundo(false);}}>✏</button>
+                                <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".82rem"}} onClick={()=>{const _m = normalizeMundo({...m}); setEditingMundo(_m); setMundoEditTab('lore'); setIsNewMundo(false);}}>✏</button>
                                 <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".82rem",color:"#804030",borderColor:"rgba(180,60,40,.25)"}} onClick={()=>deleteMundo(m.id)}>🗑</button>
                               </div>
                             </div>
@@ -1336,6 +1530,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                     </>
                   )}
 
+                  {/* ── Ingestão de ideias no mundo ativo ── */}
                   {activeMundo && !editingMundo && (
                     <div className="world-ingest-area">
                       <div className="world-ingest-title">💡 Ingerir Informação em "{activeMundo.nome}"</div>
@@ -1343,12 +1538,17 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                         Cole lore, descrições de sessão, notas de campanha, transcrições ou qualquer texto. A IA extrairá e organizará nas categorias do mundo automaticamente.
                       </p>
                       <textarea className="wf-textarea" rows={5}
-                        placeholder="Ex: A cidade de Neverwinter foi reconstruída após o cataclismo de 1451 DR. O Senhor Protector Dagult Neverember governa com punho de ferro..."
+                        placeholder="Ex: A cidade de Neverwinter foi reconstruída após o cataclismo de 1451 DR. O Senhor Protector Dagult Neverember governa com punho de ferro, mas a Aliança do Norte suspeita que ele esconde o herdeiro legítimo da Família Real..."
                         value={mundoIngestText} onChange={e=>{setMundoIngestText(e.target.value);setMundoIngestResult(null);}}/>
+
                       {mundoIngestResult && !mundoIngestResult._error && (
                         <div style={{background:"rgba(200,151,58,.06)",border:"1px dashed rgba(200,151,58,.3)",borderRadius:"5px",padding:"1rem",display:"flex",flexDirection:"column",gap:".65rem"}}>
-                          <span style={{fontFamily:"'Cinzel Decorative',serif",fontSize:".6rem",letterSpacing:".12em",color:"var(--gold)",textTransform:"uppercase"}}>Prévia — o que será adicionado</span>
-                          {mundoIngestResult.resumo && <p style={{fontSize:".88rem",fontStyle:"italic",color:"var(--parchment-dim)"}}>{mundoIngestResult.resumo}</p>}
+                          <span style={{fontFamily:"'Cinzel Decorative',serif",fontSize:".6rem",letterSpacing:".12em",color:"var(--gold)",textTransform:"uppercase"}}>
+                            Prévia — o que será adicionado
+                          </span>
+                          {mundoIngestResult.resumo && (
+                            <p style={{fontSize:".88rem",fontStyle:"italic",color:"var(--parchment-dim)"}}>{mundoIngestResult.resumo}</p>
+                          )}
                           <div style={{display:"flex",flexWrap:"wrap",gap:".4rem"}}>
                             {mundoIngestResult.lore && <span style={{background:"rgba(200,151,58,.1)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"3px",padding:".1rem .5rem",fontSize:".75rem",color:"var(--gold)"}}>📜 Lore</span>}
                             {mundoIngestResult.locais && <span style={{background:"rgba(200,151,58,.1)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"3px",padding:".1rem .5rem",fontSize:".75rem",color:"var(--gold)"}}>📍 Locais</span>}
@@ -1357,12 +1557,18 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                             {mundoIngestResult.restricoes && <span style={{background:"rgba(200,151,58,.1)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"3px",padding:".1rem .5rem",fontSize:".75rem",color:"#c08060"}}>⚠ Restrições</span>}
                           </div>
                           <div style={{display:"flex",gap:".5rem",flexWrap:"wrap"}}>
-                            <button className="btn btn-primary" style={{padding:".6rem 1.6rem",fontSize:".88rem"}} onClick={applyMundoIngest}>✓ Confirmar e Adicionar</button>
+                            <button className="btn btn-primary" style={{padding:".6rem 1.6rem",fontSize:".88rem"}} onClick={applyMundoIngest}>
+                              ✓ Confirmar e Adicionar
+                            </button>
                             <button className="btn btn-ghost" onClick={()=>setMundoIngestResult(null)}>Descartar</button>
                           </div>
                         </div>
                       )}
-                      {mundoIngestResult?._error && <p style={{color:"var(--red)",fontStyle:"italic",fontSize:".88rem"}}>⚠ {mundoIngestResult._error}</p>}
+
+                      {mundoIngestResult?._error && (
+                        <p style={{color:"var(--red)",fontStyle:"italic",fontSize:".88rem"}}>⚠ {mundoIngestResult._error}</p>
+                      )}
+
                       {!mundoIngestResult && (
                         <div style={{display:"flex",gap:".6rem",flexWrap:"wrap"}}>
                           <button className="btn btn-ingest" disabled={!mundoIngestText.trim()||mundoIngestLoading||!providerOk} onClick={ingestIntoMundo}>
@@ -1374,25 +1580,34 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                     </div>
                   )}
 
+                  {/* Prompt to select a world if none active */}
                   {!activeMundo && !editingMundo && mundos.length > 0 && (
                     <div style={{background:"rgba(100,80,40,.06)",border:"1px solid rgba(150,110,50,.2)",borderRadius:"5px",padding:".9rem 1.1rem",fontSize:".88rem",color:"var(--parchment-dim)",fontStyle:"italic"}}>
                       Clique em um mundo para ativá-lo. O mundo ativo será usado como contexto em todas as seeds geradas.
                     </div>
                   )}
+
                 </div>
               )}
 
-              {/* ── TAB HISTÓRICO ── */}
+                            {/* ── TAB HISTÓRICO ── */}
               {tab==="historico" && (
                 <div style={{display:"flex",flexDirection:"column",gap:"1rem"}}>
+
+                  {/* TOOLBAR */}
                   <div style={{display:"flex",gap:".6rem",alignItems:"center",flexWrap:"wrap"}}>
-                    <select value={filtroMundoHist} onChange={e=>setFiltroMundoHist(e.target.value)}
+                    {/* Filtro por mundo */}
+                    <select
+                      value={filtroMundoHist}
+                      onChange={e=>setFiltroMundoHist(e.target.value)}
                       style={{background:"rgba(0,0,0,.4)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"4px",padding:".38rem .7rem",fontFamily:"'Crimson Pro',serif",fontSize:".88rem",color:"var(--parchment)",outline:"none",cursor:"pointer"}}>
                       <option value="">🌍 Todos os mundos</option>
                       <option value="__sem_mundo__">— Sem mundo vinculado</option>
                       {mundos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}
                     </select>
-                    <span style={{fontSize:".8rem",fontStyle:"italic",color:"var(--parchment-dim)"}}>{historicoFiltrado.length} seed(s)</span>
+                    <span style={{fontSize:".8rem",fontStyle:"italic",color:"var(--parchment-dim)"}}>
+                      {historicoFiltrado.length} seed(s)
+                    </span>
                     <div style={{marginLeft:"auto",display:"flex",gap:".5rem"}}>
                       {cfg.githubToken && cfg.gistId && (
                         <button className="btn btn-ghost" onClick={syncFromGist} disabled={syncStatus==="syncing"}>
@@ -1402,8 +1617,11 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                     </div>
                   </div>
 
+                  {/* LISTA */}
                   {historicoFiltrado.length===0 ? (
-                    <p className="empty-state">{historico.length===0 ? "Nenhum pergaminho guardado ainda." : "Nenhuma seed para este filtro."}</p>
+                    <p className="empty-state">
+                      {historico.length===0 ? "Nenhum pergaminho guardado ainda." : "Nenhuma seed para este filtro."}
+                    </p>
                   ) : (
                     <div className="history-list">
                       {historicoFiltrado.map(h => {
@@ -1412,6 +1630,8 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                         const isExpanded = expandedHistId === h.id;
                         return (
                           <div key={h.id} style={{background:"var(--surface)",border:`1px solid ${mundoVinculado?"rgba(200,151,58,.35)":"var(--border)"}`,borderRadius:"5px",overflow:"hidden",transition:"all .2s"}}>
+
+                            {/* HEADER DO CARD */}
                             <div style={{padding:"1rem 1.2rem",cursor:"pointer"}} onClick={()=>setExpandedHistId(isExpanded?null:h.id)}>
                               <div style={{display:"flex",gap:".35rem",flexWrap:"wrap",marginBottom:".4rem",alignItems:"center"}}>
                                 {mundoVinculado && <span style={{background:"rgba(200,151,58,.12)",border:"1px solid rgba(200,151,58,.3)",borderRadius:"3px",padding:".1rem .45rem",fontSize:".7rem",color:"var(--gold)"}}>🌍 {mundoVinculado.nome}</span>}
@@ -1423,31 +1643,54 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                               <div style={{fontSize:".93rem",color:"var(--parchment-dim)",fontStyle:"italic",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{titulo}</div>
                               <div style={{fontSize:".75rem",color:"#5a4a30",marginTop:".3rem"}}>Forjado em: {h.date}</div>
                             </div>
+
+                            {/* EXPANDED ACTIONS */}
                             {isExpanded && (
                               <div style={{borderTop:"1px solid rgba(200,151,58,.15)",padding:"1rem 1.2rem",display:"flex",flexDirection:"column",gap:".8rem",background:"rgba(0,0,0,.2)"}}>
+
+                                {/* VINCULAR A MUNDO */}
                                 <div style={{display:"flex",alignItems:"center",gap:".6rem",flexWrap:"wrap"}}>
                                   <span style={{fontSize:".8rem",color:"var(--parchment-dim)",whiteSpace:"nowrap"}}>Vincular ao mundo:</span>
-                                  <select value={h.mundoId||""} onChange={e=>vincularSeedMundo(h.id, e.target.value||null)}
+                                  <select
+                                    value={h.mundoId||""}
+                                    onChange={e=>vincularSeedMundo(h.id, e.target.value||null)}
                                     style={{background:"rgba(0,0,0,.4)",border:"1px solid rgba(200,151,58,.25)",borderRadius:"4px",padding:".3rem .6rem",fontFamily:"'Crimson Pro',serif",fontSize:".85rem",color:"var(--parchment)",outline:"none",cursor:"pointer",flex:1,minWidth:"140px"}}>
                                     <option value="">— Nenhum —</option>
                                     {mundos.map(m=><option key={m.id} value={m.id}>{m.nome}</option>)}
                                   </select>
                                 </div>
+
+                                {/* INCORPORAR AO MUNDO */}
                                 {mundoVinculado && (
                                   <div style={{background:"rgba(200,151,58,.05)",border:"1px dashed rgba(200,151,58,.25)",borderRadius:"4px",padding:".7rem .9rem",display:"flex",alignItems:"center",gap:".8rem",flexWrap:"wrap"}}>
                                     <div style={{flex:1}}>
                                       <div style={{fontSize:".82rem",color:"var(--gold)",fontWeight:600,marginBottom:".2rem"}}>Incorporar ao lore de "{mundoVinculado.nome}"</div>
                                       <div style={{fontSize:".78rem",color:"var(--parchment-dim)",fontStyle:"italic"}}>A IA extrai NPCs, locais e eventos desta seed e adiciona ao mundo.</div>
                                     </div>
-                                    <button className="btn btn-ingest" style={{whiteSpace:"nowrap",padding:".4rem .9rem",fontSize:".82rem"}} disabled={incorporandoId===h.id} onClick={()=>incorporarSeedNoMundo(h, mundoVinculado)}>
+                                    <button
+                                      className="btn btn-ingest"
+                                      style={{whiteSpace:"nowrap",padding:".4rem .9rem",fontSize:".82rem"}}
+                                      disabled={incorporandoId===h.id}
+                                      onClick={()=>incorporarSeedNoMundo(h, mundoVinculado)}>
                                       {incorporandoId===h.id ? "⚗ Incorporando..." : "⚗ Incorporar"}
                                     </button>
                                   </div>
                                 )}
+
+                                {/* AÇÕES */}
                                 <div style={{display:"flex",gap:".5rem",flexWrap:"wrap"}}>
-                                  <button className="btn btn-ghost" style={{fontSize:".82rem",padding:".32rem .8rem"}} onClick={()=>{setResultado(h.text);setTab("gerar");setSugestoes(null);setExpandedHistId(null);}}>📖 Abrir seed</button>
-                                  <button className="btn btn-ghost" style={{fontSize:".82rem",padding:".32rem .8rem"}} onClick={()=>navigator.clipboard.writeText(h.text)}>⎘ Copiar</button>
-                                  <button className="btn btn-danger" style={{fontSize:".82rem",padding:".32rem .8rem",marginLeft:"auto"}} onClick={()=>deletarSeed(h.id)}>🗑 Apagar</button>
+                                  <button className="btn btn-ghost" style={{fontSize:".82rem",padding:".32rem .8rem"}}
+                                    onClick={()=>{setResultado(h.text);setTab("gerar");setSugestoes(null);setExpandedHistId(null);}}>
+                                    📖 Abrir seed
+                                  </button>
+                                  <button className="btn btn-ghost" style={{fontSize:".82rem",padding:".32rem .8rem"}}
+                                    onClick={()=>navigator.clipboard.writeText(h.text)}>
+                                    ⎘ Copiar
+                                  </button>
+                                  <button className="btn btn-danger" style={{fontSize:".82rem",padding:".32rem .8rem",marginLeft:"auto"}}
+                                    onClick={()=>deletarSeed(h.id)}>
+                                    🗑 Apagar
+                                  </button>
                                 </div>
                               </div>
                             )}
@@ -1459,7 +1702,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                 </div>
               )}
 
-              {/* ── TAB BIBLIOTECA ── */}
+{/* ── TAB BIBLIOTECA ── */}
               {tab==="biblioteca" && (
                 <div style={{display:"flex",flexDirection:"column",gap:"1.4rem"}}>
                   <div className="stats-grid">
