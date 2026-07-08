@@ -495,7 +495,7 @@
 
       const activeMundo = mundos.find(m => m.id === activeMundoId) || null;
 
-      const updateMundos = (v) => { setMundos(v); lsSet(STORAGE_KEYS.mundos, v); };
+      const updateMundos = (v) => { setMundos(v); lsSet(STORAGE_KEYS.mundos, v); scheduleSync(temas, cenarios, tags, historico, v); };
       const setActiveMundoAndSave = (id) => { setActiveMundoId(id); lsSet(STORAGE_KEYS.activeMundo, id); };
 
       const normalizeMundo = (m) => {
