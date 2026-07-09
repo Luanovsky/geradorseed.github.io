@@ -865,17 +865,34 @@ ${dica.trim()?`- DIRETRIZ ESPECÍFICA DO MESTRE: ${dica}`:""}
 ${buildMasterContext()}
 ${buildMundoContext(activeMundo)}
 
+Ao criar a aventura, siga estas diretrizes:
+
+- A aventura deve acontecer naturalmente dentro do mundo ativo e respeitar completamente seu lore, geografia, facções, NPCs, eventos e restrições.
+- Analise primeiro quais elementos do mundo possuem relação direta com o conflito da aventura antes de começar a escrevê-la.
+- Utilize NPCs, facções e locais existentes apenas quando eles fizerem sentido para a premissa proposta.
+- Nunca inclua um NPC apenas porque ele existe no cenário.
+- Evite reutilizar repetidamente os mesmos NPCs em aventuras diferentes. Dê preferência a personagens, regiões e facções pouco explorados, salvo quando a aventura for claramente uma continuação de eventos anteriores.
+- Quando utilizar um NPC existente, ele deve desempenhar um papel importante na história. Evite aparições superficiais apenas para mencioná-lo.
+- Se nenhum NPC existente for adequado ao conflito, crie um novo personagem secundário totalmente compatível com o cenário e seu lore.
+- Sempre procure variar os locais, facções e personagens utilizados para transmitir a sensação de um mundo amplo, vivo e dinâmico.
+- Caso a aventura seja consequência direta de eventos anteriores, reutilize apenas os elementos necessários para manter a continuidade narrativa.
+
 A resposta DEVE usar exatamente os títulos abaixo com "## ":
+
 ## Título
 Um título memorável e evocativo.
+
 ## Premissa
 2 a 3 parágrafos imersivos detalhando a atmosfera, o conflito central e o que está em jogo.
+
 ## Ponto de Partida
 Como os personagens dos jogadores são inseridos fisicamente nesta situação.
+
 ## Elementos-Chave
-Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
+Exatamente 5 tópicos iniciados com "- ". Utilize esses tópicos para apresentar pistas, locais, NPCs, facções, eventos ou objetos relevantes para a aventura. Os elementos escolhidos devem ser diretamente relacionados ao conflito principal.
+
 ## Reviravoltas & Perigos
-3 desfechos inesperados ou complicações. Use listas com "- ".`;
+Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, complicações ou consequências plausíveis dentro do mundo estabelecido.;
 
         try {
           const text = await callAI(prompt);
