@@ -200,7 +200,36 @@
     .world-seed-banner{background:rgba(200,151,58,.08);border:1px solid rgba(200,151,58,.3);border-radius:5px;padding:.65rem 1rem;font-size:.88rem;color:var(--gold-bright);display:flex;align-items:center;gap:.6rem}
     .world-seed-banner strong{color:var(--gold)}
     @media(max-width:768px){.wf-grid{grid-template-columns:1fr}}
-  </style>
+  
+    .editor-layout { display: flex; gap: 1rem; max-width: 100%; }
+    .editor-sidebar { width: 160px; display: flex; flex-direction: column; gap: 0.3rem; flex-shrink: 0; }
+    .editor-tab-btn { background: rgba(200,151,58,0.08); border: 1px solid rgba(200,151,58,0.15); color: var(--parchment-dim); padding: 0.8rem 1rem; cursor: pointer; transition: all 0.2s; border-radius: 3px; text-align: left; font-size: 0.9rem; }
+    .editor-tab-btn:hover { background: rgba(200,151,58,0.12); border-color: rgba(200,151,58,0.3); }
+    .editor-tab-btn.active { background: rgba(200,151,58,0.2); border-color: var(--gold); color: var(--gold); font-weight: 600; }
+    .editor-content { flex: 1; min-width: 0; max-width: calc(100vw - 250px); overflow-x: hidden; word-wrap: break-word; overflow-wrap: break-word; }
+    .crud-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .crud-card { background: rgba(200,151,58,0.08); border: 1px solid rgba(200,151,58,0.2); padding: 0.8rem; border-radius: 3px; cursor: pointer; transition: all 0.2s; }
+    .crud-card:hover { background: rgba(200,151,58,0.12); border-color: rgba(200,151,58,0.4); transform: translateX(4px); }
+    .crud-card.editing { background: rgba(200,151,58,0.15); border-color: var(--gold); }
+    .crud-name { color: var(--gold); font-weight: 600; margin-bottom: 0.2rem; }
+    .crud-type { color: var(--parchment-dim); font-size: 0.85rem; }
+    .crud-editor { background: rgba(200,151,58,0.1); border: 1px solid rgba(200,151,58,0.25); padding: 1rem; border-radius: 3px; margin-top: 0.5rem; }
+    .crud-input { width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(200,151,58,0.2); border-radius: 3px; color: var(--parchment); font-family: inherit; }
+    .crud-textarea { width: 100%; min-height: 80px; padding: 0.5rem; margin-bottom: 0.5rem; background: rgba(0,0,0,0.2); border: 1px solid rgba(200,151,58,0.2); border-radius: 3px; color: var(--parchment); font-family: inherit; }
+    .crud-buttons { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .crud-btn { flex: 1; padding: 0.4rem 0.5rem; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: all 0.2s; }
+    .crud-btn-save { background: rgba(200,151,58,0.3); color: var(--gold); }
+    .crud-btn-save:hover { background: rgba(200,151,58,0.5); }
+    .crud-btn-del { background: rgba(200,0,0,0.2); color: #ff6b6b; }
+    .crud-btn-del:hover { background: rgba(200,0,0,0.3); }
+    .crud-btn-add { background: rgba(200,151,58,0.2); color: var(--gold); width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: none; border-radius: 3px; cursor: pointer; font-weight: 500; font-size: 0.85rem; transition: all 0.2s; }
+    .crud-btn-add:hover { background: rgba(200,151,58,0.35); }
+
+    .crud-input, .crud-textarea { word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
+    .wf-textarea { word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
+
+    .mundo-editor-container { max-width: 100%; overflow-x: hidden; }
+</style>
 </head>
 <body>
   <div id="root"></div>
@@ -252,11 +281,10 @@
       nome: "",
       descricao: "",
       lore: "",
-      locais: [],
-      faccoes: [],
-      npcs: [],
+      locais: "",
+      faccoes: "",
+      npcs: "",
       restricoes: "",
-      sessoes: "",
       criadoEm: new Date().toLocaleDateString('pt-BR'),
     });
 
@@ -266,7 +294,7 @@
       catch { return fallback; }
     }
     function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
-    function loadCfg() { return lsGet(CFG_KEY, { anthropicKey:"", deepseekKey:"", githubToken:"", gistId:"", provider:"deepseek", contextoRico:true }); }
+    function loadCfg() { return lsGet(CFG_KEY, { anthropicKey:"", deepseekKey:"", githubToken:"", gistId:"", kankaToken:"", provider:"deepseek", contextoRico:true }); }
     function saveCfg(cfg) { lsSet(CFG_KEY, cfg); }
 
     // ── GITHUB GIST SYNC ──────────────────────────────────────────────────────
@@ -365,7 +393,7 @@
       const StatusDot = ({ k }) => {
         const v = testResult[k];
         if (!v) return null;
-        return React.createElement("span", {style:{fontSize:".78rem",color:v==="ok"?"var(--green)":"var(--red)",marginLeft:".4rem"}}, v==="ok"?"OK":"Error");
+        return <span style={{fontSize:".78rem", color: v==="ok"?"var(--green)":"var(--red)", marginLeft:".4rem"}}>{v==="ok"?"✓ OK":"✗ "+v}</span>;
       };
 
       return (
@@ -401,6 +429,14 @@
                   </button>
                   <StatusDot k="anthropic"/>
                 </div>
+              </div>
+            </div>
+
+            <div className="modal-section">
+              <div className="modal-section-title">Kanka API</div>
+              <div className="field-row">
+                <label className="field-label">Token</label>
+                <input className="field-input" type="password" placeholder="pk_live_..." value={form.kankaToken} onChange={e=>set("kankaToken",e.target.value)} />
               </div>
             </div>
 
@@ -473,55 +509,29 @@
       const [historico, setHistorico] = useState(() => lsGet(STORAGE_KEYS.historico, []));
 
       // ── MUNDOS state ──────────────────────────────────────────────────────────
-      const [mundos, setMundos] = useState(() => {
-        const loaded = lsGet(STORAGE_KEYS.mundos, []);
-        return loaded.map(m => ({
-          ...m,
-          npcs: Array.isArray(m.npcs) ? m.npcs : [],
-          locais: Array.isArray(m.locais) ? m.locais : [],
-          faccoes: Array.isArray(m.faccoes) ? m.faccoes : [],
-        }));
-      });
+      const [mundos, setMundos] = useState(() => lsGet(STORAGE_KEYS.mundos, []));
       const [activeMundoId, setActiveMundoId] = useState(() => lsGet(STORAGE_KEYS.activeMundo, null));
-      const [editingMundo, setEditingMundo] = useState(null);
-      const [mundoEditTab, setMundoEditTab] = useState("lore"); const [sessoes, setSessoes] = useState({});
-      const [editingNPC, setEditingNPC] = useState(null);
-      const [editingLocal, setEditingLocal] = useState(null);
-      const [editingFaccao, setEditingFaccao] = useState(null); // null | objeto mundo
+      const [editingMundo, setEditingMundo] = useState(null); // null | objeto mundo
       const [isNewMundo, setIsNewMundo] = useState(false);
       const [mundoIngestText, setMundoIngestText] = useState("");
       const [mundoIngestLoading, setMundoIngestLoading] = useState(false);
       const [mundoIngestResult, setMundoIngestResult] = useState(null);
+      const [adventureLevel, setAdventureLevel] = useState("medio");
+      const [editorTab, setEditorTab] = useState("info");
+      const [editingIdx, setEditingIdx] = useState(null);
+      const [editingType, setEditingType] = useState(null);
 
       const activeMundo = mundos.find(m => m.id === activeMundoId) || null;
 
-      const updateMundos = (v) => { setMundos(v); lsSet(STORAGE_KEYS.mundos, v); scheduleSync(temas, cenarios, tags, historico, v); };
+      const updateMundos = (v) => { setMundos(v); lsSet(STORAGE_KEYS.mundos, v); };
       const setActiveMundoAndSave = (id) => { setActiveMundoId(id); lsSet(STORAGE_KEYS.activeMundo, id); };
 
-      const normalizeMundo = (m) => {
-        if (!m) m = {};
-        if (!Array.isArray(m.npcs)) m.npcs = [];
-        if (!Array.isArray(m.locais)) m.locais = [];
-        if (!Array.isArray(m.faccoes)) m.faccoes = [];
-        if (typeof m.npcs === 'string') m.npcs = [];
-        if (typeof m.locais === 'string') m.locais = [];
-        if (typeof m.faccoes === 'string') m.faccoes = [];
-        if (typeof m.sessoes !== 'string') m.sessoes = '';
-        return m;
-      };
-      
       const saveMundo = (m) => {
         if (!m.nome.trim()) return;
-        const normalized = {
-          ...m,
-          npcs: Array.isArray(m.npcs) ? m.npcs : [],
-          locais: Array.isArray(m.locais) ? m.locais : [],
-          faccoes: Array.isArray(m.faccoes) ? m.faccoes : [],
-        };
         if (isNewMundo) {
-          updateMundos([...mundos, normalized]);
+          updateMundos([...mundos, m]);
         } else {
-          updateMundos(mundos.map(x => x.id === normalized.id ? normalized : x));
+          updateMundos(mundos.map(x => x.id === m.id ? m : x));
         }
         setEditingMundo(null); setIsNewMundo(false);
       };
@@ -536,24 +546,22 @@
       const ingestIntoMundo = async () => {
         if (!mundoIngestText.trim() || !activeMundo) return;
         setMundoIngestLoading(true); setMundoIngestResult(null);
-        const serializeArray = (arr) => {
-          if (!Array.isArray(arr)) return arr || "";
-          return arr.map(item => item.nome || item || "").filter(Boolean).join(", ");
-        };
-        const prompt = `Você é um assistente de worldbuilding para RPG. O mestre compartilhou informações. Extraia e retorne APENAS JSON válido:
-{"lore":"texto","locais":"itens","faccoes":"itens","npcs":"itens","restricoes":"texto","resumo":"frase"}
+        const prompt = `Você é um assistente de worldbuilding para RPG. O mestre compartilhou informações sobre seu mundo. Extraia e organize essas informações nas categorias abaixo e retorne APENAS JSON válido, sem markdown:
 
-Mundo: ${activeMundo.nome}
-Descricao: ${activeMundo.descricao || ""}
-Lore: ${(activeMundo.lore || "").substring(0,300)}
-Locais: ${serializeArray(activeMundo.locais)}
-Faccoes: ${serializeArray(activeMundo.faccoes)}
-NPCs: ${serializeArray(activeMundo.npcs)}
-Restricoes: ${(activeMundo.restricoes || "").substring(0,150)}
+{"lore":"lore e história extraída (adicione ao existente se houver)","locais":"locais e regiões extraídos","faccoes":"facções e organizações extraídas","npcs":"NPCs importantes extraídos","restricoes":"restrições do mundo extraídas (sem magia, tecnologia, etc)","resumo":"1 frase resumindo a nova informação adicionada"}
 
-Nova info: "${mundoIngestText}"
+Mundo atual — ${activeMundo.nome}:
+${activeMundo.descricao ? "Descrição: "+activeMundo.descricao : ""}
+${activeMundo.lore ? "Lore atual: "+activeMundo.lore.slice(0,400) : ""}
+${activeMundo.locais ? "Locais atuais: "+activeMundo.locais.slice(0,300) : ""}
+${activeMundo.faccoes ? "Facções atuais: "+activeMundo.faccoes.slice(0,300) : ""}
+${activeMundo.npcs ? "NPCs atuais: "+activeMundo.npcs.slice(0,300) : ""}
+${activeMundo.restricoes ? "Restrições atuais: "+activeMundo.restricoes.slice(0,200) : ""}
 
-Expanda (não apague). Se vazio, retorne "".`;
+Nova informação a incorporar:
+"${mundoIngestText}"
+
+Funda com o que já existe (não apague, expanda). Se uma categoria não tiver informação nova, retorne string vazia "".`;
         try {
           const res = await callAI(prompt, 1200);
           const parsed = JSON.parse(res.replace(/```json|```/g,"").trim());
@@ -566,18 +574,12 @@ Expanda (não apague). Se vazio, retorne "".`;
 
       const applyMundoIngest = () => {
         if (!mundoIngestResult || mundoIngestResult._error || !activeMundo) return;
-        const parseArrayFromString = (str, existingArray) => {
-          const arr = Array.isArray(existingArray) ? existingArray : [];
-          if (!str || !str.trim()) return arr;
-          const items = str.split(',').map(s => s.trim()).filter(Boolean);
-          return [...arr, ...items.map(nome => ({id: Date.now().toString() + Math.random(), nome}))];
-        };
         const updated = {
           ...activeMundo,
           lore: [activeMundo.lore, mundoIngestResult.lore].filter(Boolean).join("\n").trim(),
-          locais: parseArrayFromString(mundoIngestResult.locais, activeMundo.locais),
-          faccoes: parseArrayFromString(mundoIngestResult.faccoes, activeMundo.faccoes),
-          npcs: parseArrayFromString(mundoIngestResult.npcs, activeMundo.npcs),
+          locais: [activeMundo.locais, mundoIngestResult.locais].filter(Boolean).join("\n").trim(),
+          faccoes: [activeMundo.faccoes, mundoIngestResult.faccoes].filter(Boolean).join("\n").trim(),
+          npcs: [activeMundo.npcs, mundoIngestResult.npcs].filter(Boolean).join("\n").trim(),
           restricoes: [activeMundo.restricoes, mundoIngestResult.restricoes].filter(Boolean).join("\n").trim(),
         };
         updateMundos(mundos.map(m => m.id === updated.id ? updated : m));
@@ -660,6 +662,30 @@ Expanda (não apague). Se vazio, retorne "".`;
       const providerOk = providerKey && providerKey.length > 10;
 
       // ── AI CALL ──────────────────────────────────────────────────────────────
+
+      const syncKanka = async () => {
+        if (!cfg.kankaToken || !editingMundo.kankaId) return alert("Configure token e ID");
+        try {
+          const h = {Authorization: `Bearer ${cfg.kankaToken}`, Accept: "application/json"};
+          const locs = await fetch(`https://api.kanka.io/1.0/campaigns/${editingMundo.kankaId}/locations?limit=100`, {headers:h}).then(r=>r.json());
+          const chars = await fetch(`https://api.kanka.io/1.0/campaigns/${editingMundo.kankaId}/characters?limit=100`, {headers:h}).then(r=>r.json());
+          const orgs = await fetch(`https://api.kanka.io/1.0/campaigns/${editingMundo.kankaId}/organisations?limit=100`, {headers:h}).then(r=>r.json());
+          setEditingMundo(p=>({...p, locais: locs.data.map(x=>({id:x.id, nome:x.name, tipo:x.type||"", descricao:x.entry||""})), npcs: chars.data.map(x=>({id:x.id, nome:x.name, profissao:x.title||"", descricao:x.entry||""})), faccoes: orgs.data.map(x=>({id:x.id, nome:x.name, descricao:x.entry||""}))}));
+          alert("✓ Sincronizado!");
+        } catch(e) { alert("Erro: "+e.message); }
+      };
+
+
+      const toggleEdit = (type, idx) => {
+        if (editingType === type && editingIdx === idx) {
+          setEditingType(null);
+          setEditingIdx(null);
+        } else {
+          setEditingType(type);
+          setEditingIdx(idx);
+        }
+      };
+
       const callAI = async (prompt, maxTokens = 3000) => {
         if (!providerOk) throw new Error("Configure a chave de API nas Configurações (⚙)");
         if (provider === "deepseek") {
@@ -735,7 +761,8 @@ Expanda (não apague). Se vazio, retorne "".`;
         if (!ideiaCrua.trim()) return;
         setLoading(true); setResultado(null); setSugestoes(null);
         const worldCtx = activeMundo ? ("\n\nContexto do mundo ativo — " + activeMundo.nome + ":" + (activeMundo.descricao ? "\nDescrição: "+activeMundo.descricao : "") + (activeMundo.lore ? "\nLore: "+activeMundo.lore.slice(0,400) : "") + (activeMundo.locais ? "\nLocais: "+activeMundo.locais.slice(0,200) : "") + (activeMundo.faccoes ? "\nFacções: "+activeMundo.faccoes.slice(0,200) : "") + (activeMundo.npcs ? "\nNPCs: "+activeMundo.npcs.slice(0,200) : "") + (activeMundo.restricoes ? "\nRestrições: "+activeMundo.restricoes : "") + "\n\nIMPORTANTE: A seed deve se encaixar neste mundo.") : "";
-        const prompt = "Você é um mestre experiente. Recebi estas anotações:\n\"" + ideiaCrua + "\"" + worldCtx + "\nTransforme em semente de RPG agnóstica com ## Título, ## Premissa, ## Ponto de Partida, ## Elementos-Chave, ## Reviravoltas & Perigos";
+        const levelDesc = adventureLevel === "baixo" ? "escopo contido, desafios localizados, mistério ou exploração de pequena escala, ameaças imediatas e diretas" : adventureLevel === "alto" ? "escopo épico, múltiplos atores influentes em jogo, consequências duradouras, segredos profundos ou conspiração complexa" : "escopo moderado, conflitos faccionários ou políticos, dilemas com múltiplas soluções, consequências regionais";
+        const prompt = "Você é um mestre experiente de GURPS criando aventuras. Recebi estas anotações:\n\"" + ideiaCrua + "\"" + worldCtx + "\n\n🎯 ESCOPO DA AVENTURA: " + adventureLevel.toUpperCase() + "\nDescrição: " + levelDesc + "\n\nCRÍTICO — Evite redundância de personagens:\n- Se um NPC com CARGO/POSIÇÃO já existe no mundo, NÃO REPITA em múltiplos papéis\n- Use personagens existentes APENAS UMA VEZ, em papel estratégico\n- Novos NPCs devem ter papéis específicos ou únicos\n\n📋 ESTRUTURA OBRIGATÓRIA:\n\n## Título\nAlgo memorável e evocativo.\n\n## Premissa\n2-3 parágrafos imersivos detalhando: atmosfera, conflito central, o que está em jogo.\n\n## Ponto de Partida\nComo os PJs são inseridos fisicamente nesta situação.\n\n## Elementos-Chave\nExatamente 5 itens com '- ' descrevendo: pistas, locais, NPCs, facções ou objetos importantes.\n\n## Reviravoltas & Perigos\n3 complicações ou desfechos inesperados com '- '.\n\nAJUSTE O TOM ao escopo: " + (adventureLevel === "baixo" ? "simples, direto, pessoal" : adventureLevel === "alto" ? "épico, sombrio, consequente" : "intrincado, multifacetado, político") + ".";
         try {
           const text = await callAI(prompt);
           setResultado(text);
@@ -821,63 +848,31 @@ Expanda (não apague). Se vazio, retorne "".`;
         return "\n\n━━ MEMÓRIA DO MESTRE ━━\n" + parts.join("\n") + "\n━━━━━━━━━━━━━━━━━━━━━━";
       };
 
-      const buildMundoContext = (mundo) => {
-        if (!mundo) return "";
-        const serializeArray = (arr) => {
-          if (!Array.isArray(arr)) return "";
-          return arr.map(item => item.nome || item || "").filter(Boolean).join(", ");
-        };
-        let ctx = `
-=== CONTEXTO DO MUNDO ATIVO: "${mundo.nome}" ===`;
-        if (mundo.descricao) ctx += `
-Descrição: ${mundo.descricao}`;
-        if (mundo.lore) ctx += `
-Lore: ${mundo.lore.substring(0, 600)}`;
-        const locaisStr = serializeArray(mundo.locais);
-        if (locaisStr) ctx += `
-Locais: ${locaisStr}`;
-        const faccoesStr = serializeArray(mundo.faccoes);
-        if (faccoesStr) ctx += `
-Facções: ${faccoesStr}`;
-        const npcsStr = serializeArray(mundo.npcs);
-        if (npcsStr) ctx += `
-NPCs: ${npcsStr}`;
-        if (mundo.restricoes) ctx += `
-RESTRIÇÕES: ${mundo.restricoes}`; if (mundo.sessoes) ctx += `
-SESSÕES ANTERIORES: ${mundo.sessoes.substring(0, 400)}`;
-        ctx += `
-IMPORTANTE: Use os locais, facções e NPCs listados quando relevante.`;
-        return ctx;
-      };
-
       const generateSeed = async () => {
         setLoading(true); setResultado(null); setSugestoes(null); setJustUnlocked(null);
         const tObj = temas.find(x=>x.id===tema);
         const cObj = cenarios.find(x=>x.id===cenario);
         const eObj = ESCOPOS.find(x=>x.id===escopo);
         const selTags = activeTags.map(id=>tags.find(x=>x.id===id)).filter(Boolean);
+        const levDesc = adventureLevel === "baixo" ? "escopo contido, desafios localizados, mistério ou exploração de pequena escala, ameaças imediatas e diretas" : adventureLevel === "alto" ? "escopo épico, múltiplos atores influentes em jogo, consequências duradouras, segredos profundos ou conspiração complexa" : "escopo moderado, conflitos faccionários ou políticos, dilemas com múltiplas soluções, consequências regionais";
         const prompt = `Você é um mestre de RPG ancião e criativo. Gere uma seed de aventura RPG totalmente agnóstica de sistema com base nas diretrizes abaixo:
 - Tema Base: ${tObj?tObj.label:"Livre/Híbrido"}
 - Cenário de Fundo: ${cObj?cObj.label:"Livre/Híbrido"}
 - Escopo Estrutural: ${eObj?`${eObj.label} (${eObj.desc})`:"Aventura Padrão"}
+- NÍVEL DE ESCOPO: ${adventureLevel.toUpperCase()} — ${levDesc}
 - Elementos Requeridos (Tags): ${selTags.length>0?selTags.map(x=>x.label).join(", "):"Livre"}
 ${dica.trim()?`- DIRETRIZ ESPECÍFICA DO MESTRE: ${dica}`:""}
 ${buildMasterContext()}
-${buildMundoContext(activeMundo)}
-
-DIRETRIZES CRÍTICAS PARA COERÊNCIA DO MUNDO:
-- TIPOS E HIERARQUIAS: Respeite a NATUREZA de cada elemento. Se um local é marcado como "Reino", trate-o como uma entidade política completa, não como um simples local. Cidades estão DENTRO de reinos. Dungeons são locações específicas, não regiões.
-- PRECISÃO COM NPCS: Cada NPC deve ter consistência. Se o perfil diz "Chefe da Guilda", use-o como tal na aventura. Não contradiga tipos ou funções.
-- COERÊNCIA COM FACÇÕES: Respeite a natureza de cada facção (guilda, culto, império). Não as confunda com simples organizações vagas.
-- RESPEITE SESSÕES ANTERIORES: Se há resumo de sessões no mundo, a aventura deve fazer sentido como continuação ou pelo menos respeitar a lógica estabelecida.
-- EVITE CONFUSÕES: Não trate um Reino como se fosse apenas um local genérico. Mantenha tipos e categorias claras e distintas.
-- USE RESTRIÇÕES: Se o mundo tem restrições (sem magia, tech limitada), ABSOLUTAMENTE nenhuma violação.
-
-REGRA DE COMPOSIÇÃO:
-- Escolha Elementos-Chave que realmente se conectem ao conflito principal
-- Se vai usar um NPC de tipo "Ranger", não o trate como mago
-- Se um Local é tipo "Dungeon", não o coloque como capital política
-- Prefira elementos pouco explorados em aventuras anteriores, MAS respeitando sempre sua NATUREZA e TIPO
+${activeMundo ? `
+━━ CONTEXTO DO MUNDO ATIVO: "${activeMundo.nome}" ━━
+${activeMundo.descricao ? "Descrição: "+activeMundo.descricao : ""}
+${activeMundo.lore ? "Lore e história: "+activeMundo.lore.slice(0,600) : ""}
+${activeMundo.locais ? "Locais e regiões existentes: "+activeMundo.locais.slice(0,400) : ""}
+${activeMundo.faccoes ? "Facções e organizações: "+activeMundo.faccoes.slice(0,400) : ""}
+${activeMundo.npcs ? "NPCs importantes: "+activeMundo.npcs.slice(0,400) : ""}
+${activeMundo.restricoes ? "RESTRIÇÕES DO MUNDO (respeite obrigatoriamente): "+activeMundo.restricoes : ""}
+IMPORTANTE: Toda a seed deve ser ambientada neste mundo específico. Use os locais, facções e NPCs listados quando relevante. Respeite rigorosamente as restrições.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ""}
 
 A resposta DEVE usar exatamente os títulos abaixo com "## ":
 ## Título
@@ -887,9 +882,9 @@ Um título memorável e evocativo.
 ## Ponto de Partida
 Como os personagens dos jogadores são inseridos fisicamente nesta situação.
 ## Elementos-Chave
-Exatamente 5 tópicos iniciados com "- ". Cada um deve especificar O TIPO do elemento (ex: "- Mashanda (Reino): contexto") para evitar confusões. Utilize esses tópicos para apresentar pistas, locais, NPCs, facções, eventos ou objetos relevantes para a aventura.
+Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
 ## Reviravoltas & Perigos
-Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, complicações ou consequências plausíveis dentro do mundo estabelecido.`;
+3 desfechos inesperados ou complicações. Use listas com "- ".`;
 
         try {
           const text = await callAI(prompt);
@@ -957,85 +952,6 @@ Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, co
         setIncorporandoId(null);
       };
 
-      const addNPC = (data) => {
-        if (!editingMundo) return;
-        const m = normalizeMundo({...editingMundo});
-        if (!Array.isArray(m.npcs)) m.npcs = [];
-        const newNPC = {...data, id: Date.now().toString()};
-        m.npcs.push(newNPC);
-        setEditingMundo(m);
-        setEditingNPC(newNPC);
-        setMundoEditTab("npcs");
-      };
-      const updateNPC = (id, data) => {
-        if (!editingMundo || !id) return;
-        const m = normalizeMundo({...editingMundo});
-        if (Array.isArray(m.npcs)) {
-          m.npcs = m.npcs.map(n => n.id === id ? {...n, ...data} : n);
-          setEditingMundo(m);
-        }
-      };
-      const deleteNPC = (id) => {
-        if (!editingMundo || !id) return;
-        const m = normalizeMundo({...editingMundo});
-        if (Array.isArray(m.npcs)) {
-          m.npcs = m.npcs.filter(n => n.id !== id);
-          setEditingMundo(m);
-        }
-      };
-      const addLocal = (data) => {
-        if (!editingMundo) return;
-        const m = normalizeMundo({...editingMundo});
-        if (!Array.isArray(m.locais)) m.locais = [];
-        const newLocal = {...data, id: Date.now().toString()};
-        m.locais.push(newLocal);
-        setEditingMundo(m);
-        setEditingLocal(newLocal);
-        setMundoEditTab("locais");
-      };
-      const updateLocal = (id, data) => {
-        if (!editingMundo || !id) return;
-        const m = normalizeMundo({...editingMundo});
-        if (Array.isArray(m.locais)) {
-          m.locais = m.locais.map(l => l.id === id ? {...l, ...data} : l);
-          setEditingMundo(m);
-        }
-      };
-      const deleteLocal = (id) => {
-        if (!editingMundo || !id) return;
-        const m = normalizeMundo({...editingMundo});
-        if (Array.isArray(m.locais)) {
-          m.locais = m.locais.filter(l => l.id !== id);
-          setEditingMundo(m);
-        }
-      };
-      const addFaccao = (data) => {
-        if (!editingMundo) return;
-        const m = normalizeMundo({...editingMundo});
-        if (!Array.isArray(m.faccoes)) m.faccoes = [];
-        const newFaccao = {...data, id: Date.now().toString()};
-        m.faccoes.push(newFaccao);
-        setEditingMundo(m);
-        setEditingFaccao(newFaccao);
-        setMundoEditTab("faccoes");
-      };
-      const updateFaccao = (id, data) => {
-        if (!editingMundo || !id) return;
-        const m = normalizeMundo({...editingMundo});
-        if (Array.isArray(m.faccoes)) {
-          m.faccoes = m.faccoes.map(f => f.id === id ? {...f, ...data} : f);
-          setEditingMundo(m);
-        }
-      };
-      const deleteFaccao = (id) => {
-        if (!editingMundo || !id) return;
-        const m = normalizeMundo({...editingMundo});
-        if (Array.isArray(m.faccoes)) {
-          m.faccoes = m.faccoes.filter(f => f.id !== id);
-          setEditingMundo(m);
-        }
-      };
-      
       const resetAll = () => {
         if (!confirm("Deseja apagar todas as customizações do Grimório?\n(As chaves de API não serão apagadas)")) return;
         updateTemas(DEFAULT_TEMAS); updateCenarios(DEFAULT_CENARIOS);
@@ -1206,6 +1122,17 @@ Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, co
                   </div>
 
                   <div className="generate-area">
+                    <div style={{display:"flex",gap:"1rem",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap"}}>
+                      <div style={{display:"flex",gap:".5rem",alignItems:"center"}}>
+                        <label style={{fontSize:".9rem",color:"var(--gold)",fontWeight:"600"}}>Escopo:</label>
+                        <select value={adventureLevel} onChange={e=>setAdventureLevel(e.target.value)} style={{padding:".5rem .8rem",background:"rgba(0,0,0,0.3)",border:"1px solid rgba(200,151,58,0.3)",borderRadius:"3px",color:"var(--parchment)",fontSize:".9rem",cursor:"pointer",fontWeight:"500"}}>
+                          <option value="baixo">🎯 Contido (Baixo Escopo)</option>
+                          <option value="medio">⚔️ Moderado (Médio Escopo)</option>
+                          <option value="alto">💥 Épico (Alto Escopo)</option>
+                        </select>
+                      </div>
+                      <span style={{fontSize:".85rem",color:"var(--parchment-dim)",fontStyle:"italic"}}>Ajusta tom e complexidade</span>
+                    </div>
                     <button className={`btn btn-primary ${loading?"loading":""}`} onClick={generateSeed} disabled={loading||!providerOk}>
                       {loading?"CONJURANDO RUNAS...":providerOk?"✦ FORJAR SEMENTE DE AVENTURA ✦":"⚙ Configure a chave de API primeiro"}
                     </button>
@@ -1264,7 +1191,15 @@ Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, co
                     <textarea className="idea-textarea" style={{minHeight:"180px"}}
                       placeholder={"Ex: 'Uma cidade construída sobre as costas de uma criatura adormecida...' — ou referências a Dark Souls, Planescape, suas anotações de campanha..."}
                       value={ideiaCrua} onChange={e=>{setIdeiaCrua(e.target.value);setIdeiaExtraida(null);setIdeiaConfirmados([]);}}/>
-                    <div style={{display:"flex",gap:".7rem",marginTop:"1rem",flexWrap:"wrap"}}>
+                    <div style={{display:"flex",gap:".7rem",marginTop:"1rem",flexWrap:"wrap",alignItems:"center"}}>
+                      <div style={{display:"flex",gap:".5rem",alignItems:"center"}}>
+                        <label style={{fontSize:".9rem",color:"var(--gold)",fontWeight:"600"}}>Teor:</label>
+                        <select value={adventureLevel} onChange={e=>setAdventureLevel(e.target.value)} style={{padding:".4rem .6rem",background:"rgba(0,0,0,0.3)",border:"1px solid rgba(200,151,58,0.3)",borderRadius:"3px",color:"var(--parchment)",fontSize:".85rem",cursor:"pointer"}}>
+                          <option value="baixo">🎯 Contido (Baixo Escopo)</option>
+                          <option value="medio">⚔️ Moderado (Médio Escopo)</option>
+                          <option value="alto">💥 Épico (Alto Escopo)</option>
+                        </select>
+                      </div>
                       <button className="btn btn-ingest" onClick={extrairDaIdeia} disabled={!ideiaCrua.trim()||ideiaExtraindo||!providerOk}>
                         {ideiaExtraindo ? "⚗ Analisando..." : "⚗ Extrair Elementos"}
                       </button>
@@ -1363,116 +1298,39 @@ Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, co
                         <button className="btn btn-ghost" style={{padding:".2rem .6rem",fontSize:".78rem"}} onClick={()=>{setEditingMundo(null);setIsNewMundo(false);}}>✕ Cancelar</button>
                       </div>
 
+{/* NOME SEMPRE VISÍVEL */}
                       <div className="wf-row">
                         <label className="wf-label">Nome do Mundo *</label>
                         <input className="wf-input" placeholder="Ex: Forgotten Realms, Eberron, Westeros, Runeterra..." value={editingMundo.nome} onChange={e=>setEditingMundo(p=>({...p,nome:e.target.value}))}/>
                       </div>
 
-                      <div className="wf-row">
-                        <label className="wf-label">Descrição Geral</label>
-                        <textarea className="wf-textarea" rows={2} placeholder="Uma frase ou parágrafo descrevendo a essência deste mundo..." value={editingMundo.descricao} onChange={e=>setEditingMundo(p=>({...p,descricao:e.target.value}))}/>
+                      {/* SIDEBAR LAYOUT */}
+                      <div className="editor-layout">
+                        <div className="editor-sidebar">
+                          <button className={`editor-tab-btn ${editorTab==="info"?"active":""}`} onClick={()=>setEditorTab("info")}>ℹ️ Info</button>
+                          <button className={`editor-tab-btn ${editorTab==="lore"?"active":""}`} onClick={()=>setEditorTab("lore")}>📖 Lore</button>
+                          <button className={`editor-tab-btn ${editorTab==="locais"?"active":""}`} onClick={()=>setEditorTab("locais")}>🏰 Locais</button>
+                          <button className={`editor-tab-btn ${editorTab==="faccoes"?"active":""}`} onClick={()=>setEditorTab("faccoes")}>⚔️ Facções</button>
+                          <button className={`editor-tab-btn ${editorTab==="npcs"?"active":""}`} onClick={()=>setEditorTab("npcs")}>👥 NPCs</button>
+                          <button className={`editor-tab-btn ${editorTab==="kanka"?"active":""}`} onClick={()=>setEditorTab("kanka")}>🔗 Kanka</button>
+                        </div>
+                        <div className="editor-content">
+
+                          {editorTab==="info"&&<div className="wf-grid"><div className="wf-row"><label className="wf-label">Descrição Geral</label><textarea className="wf-textarea" rows={3} placeholder="Uma frase ou parágrafo..." value={editingMundo.descricao} onChange={e=>setEditingMundo(p=>({...p,descricao:e.target.value}))}/></div><div className="wf-row"><label className="wf-label">Restrições do Mundo</label><textarea className="wf-textarea" rows={3} placeholder="Sem magia arcana; tecnologia limitada..." value={editingMundo.restricoes} onChange={e=>setEditingMundo(p=>({...p,restricoes:e.target.value}))}/><span className="wf-hint">⚠ Serão inseridas como obrigatórias.</span></div></div>}
+
+                          {editorTab==="lore"&&<div className="wf-row"><label className="wf-label">Lore / História</label><textarea className="wf-textarea" rows={8} placeholder="Mitos de criação, eventos históricos..." value={editingMundo.lore} onChange={e=>setEditingMundo(p=>({...p,lore:e.target.value}))}/></div>}
+
+                          {editorTab==="locais"&&<div><button onClick={()=>{const l=Array.isArray(editingMundo.locais)?editingMundo.locais:[];l.push({id:Date.now(),nome:"",tipo:"",descricao:""});setEditingMundo(p=>({...p,locais:l}));}} className="crud-btn-add">+ Novo Local</button><div className="crud-list">{Array.isArray(editingMundo.locais)&&editingMundo.locais.map((item,idx)=><div key={idx}><div className={`crud-card ${editingType==="locais"&&editingIdx===idx?"editing":""}`} onClick={()=>toggleEdit("locais",idx)}><div className="crud-name">{item.nome||"[Sem nome]"}</div><div className="crud-type">{item.tipo}</div></div>{editingType==="locais"&&editingIdx===idx&&<div className="crud-editor"><input className="crud-input" placeholder="Nome" value={item.nome||""} onChange={e=>{const l=[...editingMundo.locais];l[idx].nome=e.target.value;setEditingMundo(p=>({...p,locais:l}));}} /><input className="crud-input" placeholder="Tipo" value={item.tipo||""} onChange={e=>{const l=[...editingMundo.locais];l[idx].tipo=e.target.value;setEditingMundo(p=>({...p,locais:l}));}} /><textarea className="crud-textarea" placeholder="Descrição" value={item.descricao||""} onChange={e=>{const l=[...editingMundo.locais];l[idx].descricao=e.target.value;setEditingMundo(p=>({...p,locais:l}));}} /><div className="crud-buttons"><button className="crud-btn crud-btn-save" onClick={()=>{setEditingType(null);setEditingIdx(null);}}>✓ Pronto</button><button className="crud-btn crud-btn-del" onClick={()=>{setEditingMundo(p=>({...p,locais:p.locais.filter((_,i)=>i!==idx)}));setEditingType(null);setEditingIdx(null);}}>🗑 Deletar</button></div></div>}</div>)}</div></div>}
+
+                          {editorTab==="faccoes"&&<div><button onClick={()=>{const f=Array.isArray(editingMundo.faccoes)?editingMundo.faccoes:[];f.push({id:Date.now(),nome:"",descricao:""});setEditingMundo(p=>({...p,faccoes:f}));}} className="crud-btn-add">+ Nova Facção</button><div className="crud-list">{Array.isArray(editingMundo.faccoes)&&editingMundo.faccoes.map((item,idx)=><div key={idx}><div className={`crud-card ${editingType==="faccoes"&&editingIdx===idx?"editing":""}`} onClick={()=>toggleEdit("faccoes",idx)}><div className="crud-name">{item.nome||"[Sem nome]"}</div></div>{editingType==="faccoes"&&editingIdx===idx&&<div className="crud-editor"><input className="crud-input" placeholder="Nome" value={item.nome||""} onChange={e=>{const f=[...editingMundo.faccoes];f[idx].nome=e.target.value;setEditingMundo(p=>({...p,faccoes:f}));}} /><textarea className="crud-textarea" placeholder="Descrição" value={item.descricao||""} onChange={e=>{const f=[...editingMundo.faccoes];f[idx].descricao=e.target.value;setEditingMundo(p=>({...p,faccoes:f}));}} /><div className="crud-buttons"><button className="crud-btn crud-btn-save" onClick={()=>{setEditingType(null);setEditingIdx(null);}}>✓ Pronto</button><button className="crud-btn crud-btn-del" onClick={()=>{setEditingMundo(p=>({...p,faccoes:p.faccoes.filter((_,i)=>i!==idx)}));setEditingType(null);setEditingIdx(null);}}>🗑 Deletar</button></div></div>}</div>)}</div></div>}
+
+                          {editorTab==="npcs"&&<div><button onClick={()=>{const n=Array.isArray(editingMundo.npcs)?editingMundo.npcs:[];n.push({id:Date.now(),nome:"",profissao:"",descricao:""});setEditingMundo(p=>({...p,npcs:n}));}} className="crud-btn-add">+ Novo NPC</button><div className="crud-list">{Array.isArray(editingMundo.npcs)&&editingMundo.npcs.map((item,idx)=><div key={idx}><div className={`crud-card ${editingType==="npcs"&&editingIdx===idx?"editing":""}`} onClick={()=>toggleEdit("npcs",idx)}><div className="crud-name">{item.nome||"[Sem nome]"}</div><div className="crud-type">{item.profissao}</div></div>{editingType==="npcs"&&editingIdx===idx&&<div className="crud-editor"><input className="crud-input" placeholder="Nome" value={item.nome||""} onChange={e=>{const n=[...editingMundo.npcs];n[idx].nome=e.target.value;setEditingMundo(p=>({...p,npcs:n}));}} /><input className="crud-input" placeholder="Profissão" value={item.profissao||""} onChange={e=>{const n=[...editingMundo.npcs];n[idx].profissao=e.target.value;setEditingMundo(p=>({...p,npcs:n}));}} /><textarea className="crud-textarea" placeholder="Descrição" value={item.descricao||""} onChange={e=>{const n=[...editingMundo.npcs];n[idx].descricao=e.target.value;setEditingMundo(p=>({...p,npcs:n}));}} /><div className="crud-buttons"><button className="crud-btn crud-btn-save" onClick={()=>{setEditingType(null);setEditingIdx(null);}}>✓ Pronto</button><button className="crud-btn crud-btn-del" onClick={()=>{setEditingMundo(p=>({...p,npcs:p.npcs.filter((_,i)=>i!==idx)}));setEditingType(null);setEditingIdx(null);}}>🗑 Deletar</button></div></div>}</div>)}</div></div>}
+
+                          {editorTab==="kanka"&&cfg.kankaToken&&<div><div className="wf-row"><label className="wf-label">ID da Campanha Kanka</label><input type="text" className="wf-input" placeholder="Ex: 408293" value={editingMundo.kankaId||""} onChange={e=>setEditingMundo(p=>({...p,kankaId:e.target.value}))}/></div><button onClick={syncKanka} className="btn btn-ingest" style={{width:"100%"}}>🔄 Sincronizar do Kanka</button></div>}
+
+                        </div>
                       </div>
 
-                      <div className="wf-section-label">Restrições</div>
-                      <div className="wf-row">
-                        <label className="wf-label">Restrições do Mundo</label>
-                        <textarea className="wf-textarea" rows={2} placeholder="Ex: Sem magia arcana; tecnologia limitada a pólvora; mortos-vivos são controlados pela Igreja..." value={editingMundo.restricoes} onChange={e=>setEditingMundo(p=>({...p,restricoes:e.target.value}))}/>
-                        <span className="wf-hint">⚠ Serão inseridas como obrigatórias no prompt de geração.</span>
-                      </div>
-
-                      <div className="wf-section-label">Conteúdo do Mundo (v8 - CRUDs)</div>
-                      <div style={{display:"flex", gap:"0.5rem", borderBottom:"1px solid rgba(200,151,58,0.2)", marginBottom:"1rem", flexWrap:"wrap"}}>
-                        {["lore","npcs","locais","faccoes","sessoes"].map(tab => (
-                          <button key={tab} className="btn" style={{background: mundoEditTab === tab ? "var(--gold)" : "transparent", color: mundoEditTab === tab ? "#0a0806" : "var(--gold)", padding: "0.6rem 1.2rem", fontSize: "0.85rem", border: "none", cursor: "pointer", transition: "all 0.2s", borderBottom: mundoEditTab === tab ? "3px solid var(--gold)" : "none"}} onClick={() => setMundoEditTab(tab)}>
-                            {tab.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                      {mundoEditTab === "lore" && (
-                        <div className="wf-row">
-                          <label className="wf-label">Lore / Historia</label>
-                          <textarea className="wf-textarea" rows={4} placeholder="Mitos de criacao, eventos historicos..." value={editingMundo.lore} onChange={e=>setEditingMundo(p=>({...p,lore:e.target.value}))}/>
-                        </div>
-                      )}
-                      {mundoEditTab === "npcs" && editingMundo && (
-                        <div>
-                          <button className="btn btn-primary" style={{marginBottom:"1rem", padding:"0.6rem 1.2rem", fontSize:"0.85rem"}} onClick={()=>addNPC({nome:"", profissao:"", raca:"", descricao:""})}>+ Novo NPC</button>
-                          <div style={{display:"flex", flexDirection:"column", gap:"0.6rem"}}>
-                            {(editingMundo.npcs && Array.isArray(editingMundo.npcs) ? editingMundo.npcs : []).map(npc => (
-                              <div key={npc.id} style={{background:"rgba(200,151,58,0.1)", border:"1px solid rgba(200,151,58,0.2)", padding:"0.8rem", borderRadius:"3px", cursor:"pointer"}} onClick={()=>setEditingNPC(npc)}>
-                                <div style={{fontWeight:"600", color:"var(--gold)"}}>{npc.nome || "[Sem nome]"}</div>
-                                <div style={{fontSize:"0.85rem", color:"var(--parchment-dim)", marginTop:"0.3rem"}}>{npc.profissao || "NPC"}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {mundoEditTab === "locais" && editingMundo && (
-                        <div>
-                          <button className="btn btn-primary" style={{marginBottom:"1rem", padding:"0.6rem 1.2rem", fontSize:"0.85rem"}} onClick={()=>addLocal({nome:"", tipo:"", descricao:""})}>+ Novo Local</button>
-                          <div style={{display:"flex", flexDirection:"column", gap:"0.6rem"}}>
-                            {(editingMundo.locais && Array.isArray(editingMundo.locais) ? editingMundo.locais : []).map(local => (
-                              <div key={local.id} style={{background:"rgba(200,151,58,0.1)", border:"1px solid rgba(200,151,58,0.2)", padding:"0.8rem", borderRadius:"3px", cursor:"pointer"}} onClick={()=>setEditingLocal(local)}>
-                                <div style={{fontWeight:"600", color:"var(--gold)"}}>{local.nome || "[Sem nome]"}</div>
-                                <div style={{fontSize:"0.85rem", color:"var(--parchment-dim)", marginTop:"0.3rem"}}>{local.tipo || "Local"}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {mundoEditTab === "faccoes" && editingMundo && (
-                        <div>
-                          <button className="btn btn-primary" style={{marginBottom:"1rem", padding:"0.6rem 1.2rem", fontSize:"0.85rem"}} onClick={()=>addFaccao({nome:"", descricao:""})}>+ Nova Faccao</button>
-                          <div style={{display:"flex", flexDirection:"column", gap:"0.6rem"}}>
-                            {(editingMundo.faccoes && Array.isArray(editingMundo.faccoes) ? editingMundo.faccoes : []).map(faccao => (
-                              <div key={faccao.id} style={{background:"rgba(200,151,58,0.1)", border:"1px solid rgba(200,151,58,0.2)", padding:"0.8rem", borderRadius:"3px", cursor:"pointer"}} onClick={()=>setEditingFaccao(faccao)}>
-                                <div style={{fontWeight:"600", color:"var(--gold)"}}>{faccao.nome || "[Sem nome]"}</div>
-                                <div style={{fontSize:"0.85rem", color:"var(--parchment-dim)", marginTop:"0.3rem"}}>{(faccao.descricao || "").substring(0, 50)}...</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {mundoEditTab === "sessoes" && editingMundo && (<div className="wf-row"><label className="wf-label">Resumo das Sessoes Jogadas</label><textarea className="wf-textarea" rows={6} placeholder="Sessao 1: ...\n\nSessao 2: ..." value={editingMundo.sessoes || ""} onChange={e=>setEditingMundo(p=>({...p,sessoes:e.target.value}))}/><p style={{color:"var(--parchment-dim)",fontSize:"0.85rem",marginTop:"0.5rem"}}>Guarde aqui o relato de cada sessao para referencia futura</p></div>)}
-                      {editingNPC && mundoEditTab === "npcs" && (
-                        <div className="wf-row" style={{background:"rgba(200,151,58,0.08)", padding:"1rem", borderRadius:"4px", border:"1px solid rgba(200,151,58,0.2)", marginTop:"1rem"}}>
-                          <label className="wf-label">Editando NPC: {editingNPC.nome}</label>
-                          <input className="wf-input" type="text" placeholder="Nome" value={editingNPC.nome} onChange={e=>setEditingNPC(p=>({...p,nome:e.target.value}))}/>
-                          <input className="wf-input" type="text" placeholder="Profissao" value={editingNPC.profissao} onChange={e=>setEditingNPC(p=>({...p,profissao:e.target.value}))}/>
-                          <input className="wf-input" type="text" placeholder="Raca" value={editingNPC.raca} onChange={e=>setEditingNPC(p=>({...p,raca:e.target.value}))}/>
-                          <textarea className="wf-textarea" rows={2} placeholder="Descricao" value={editingNPC.descricao} onChange={e=>setEditingNPC(p=>({...p,descricao:e.target.value}))}/>
-                          <div style={{display:"flex", gap:"0.5rem", marginTop:"0.5rem"}}>
-                            <button className="btn btn-primary" onClick={()=>{updateNPC(editingNPC.id, editingNPC); setEditingNPC(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Salvar</button>
-                            <button className="btn btn-ingest" onClick={()=>{deleteNPC(editingNPC.id); setEditingNPC(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Deletar</button>
-                            <button className="btn" style={{background:"#666", padding:"0.6rem 1rem", fontSize:"0.85rem", border:"none", cursor:"pointer", color:"white"}} onClick={()=>setEditingNPC(null)}>Cancelar</button>
-                          </div>
-                        </div>
-                      )}
-                      {editingLocal && mundoEditTab === "locais" && (
-                        <div className="wf-row" style={{background:"rgba(200,151,58,0.08)", padding:"1rem", borderRadius:"4px", border:"1px solid rgba(200,151,58,0.2)", marginTop:"1rem"}}>
-                          <label className="wf-label">Editando Local: {editingLocal.nome}</label>
-                          <input className="wf-input" type="text" placeholder="Nome" value={editingLocal.nome} onChange={e=>setEditingLocal(p=>({...p,nome:e.target.value}))}/>
-                          <input className="wf-input" type="text" placeholder="Tipo" value={editingLocal.tipo} onChange={e=>setEditingLocal(p=>({...p,tipo:e.target.value}))}/>
-                          <textarea className="wf-textarea" rows={2} placeholder="Descricao" value={editingLocal.descricao} onChange={e=>setEditingLocal(p=>({...p,descricao:e.target.value}))}/>
-                          <div style={{display:"flex", gap:"0.5rem", marginTop:"0.5rem"}}>
-                            <button className="btn btn-primary" onClick={()=>{updateLocal(editingLocal.id, editingLocal); setEditingLocal(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Salvar</button>
-                            <button className="btn btn-ingest" onClick={()=>{deleteLocal(editingLocal.id); setEditingLocal(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Deletar</button>
-                            <button className="btn" style={{background:"#666", padding:"0.6rem 1rem", fontSize:"0.85rem", border:"none", cursor:"pointer", color:"white"}} onClick={()=>setEditingLocal(null)}>Cancelar</button>
-                          </div>
-                        </div>
-                      )}
-                      {editingFaccao && mundoEditTab === "faccoes" && (
-                        <div className="wf-row" style={{background:"rgba(200,151,58,0.08)", padding:"1rem", borderRadius:"4px", border:"1px solid rgba(200,151,58,0.2)", marginTop:"1rem"}}>
-                          <label className="wf-label">Editando Faccao: {editingFaccao.nome}</label>
-                          <input className="wf-input" type="text" placeholder="Nome" value={editingFaccao.nome} onChange={e=>setEditingFaccao(p=>({...p,nome:e.target.value}))}/>
-                          <textarea className="wf-textarea" rows={2} placeholder="Descricao" value={editingFaccao.descricao} onChange={e=>setEditingFaccao(p=>({...p,descricao:e.target.value}))}/>
-                          <div style={{display:"flex", gap:"0.5rem", marginTop:"0.5rem"}}>
-                            <button className="btn btn-primary" onClick={()=>{updateFaccao(editingFaccao.id, editingFaccao); setEditingFaccao(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Salvar</button>
-                            <button className="btn btn-ingest" onClick={()=>{deleteFaccao(editingFaccao.id); setEditingFaccao(null);}} style={{padding:"0.6rem 1rem", fontSize:"0.85rem"}}>Deletar</button>
-                            <button className="btn" style={{background:"#666", padding:"0.6rem 1rem", fontSize:"0.85rem", border:"none", cursor:"pointer", color:"white"}} onClick={()=>setEditingFaccao(null)}>Cancelar</button>
-                          </div>
-                        </div>
-                      )}
 
                       <div style={{display:"flex",gap:".65rem",marginTop:".4rem",flexWrap:"wrap"}}>
                         <button className="btn btn-primary" style={{padding:".75rem 2rem",fontSize:".88rem"}} disabled={!editingMundo.nome.trim()} onClick={()=>saveMundo(editingMundo)}>
@@ -1502,7 +1360,7 @@ Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, co
                         <div className="world-active-bar">
                           <span className="world-active-label">🌍 Ativo</span>
                           <span className="world-name-display">{activeMundo.nome}</span>
-                          <button className="btn btn-ghost" style={{padding:".25rem .7rem",fontSize:".8rem"}} onClick={()=>{const m = normalizeMundo({...activeMundo}); setEditingMundo(m); setMundoEditTab('lore'); setIsNewMundo(false);}}>✏ Editar</button>
+                          <button className="btn btn-ghost" style={{padding:".25rem .7rem",fontSize:".8rem"}} onClick={()=>{setEditingMundo({...activeMundo});setIsNewMundo(false);}}>✏ Editar</button>
                           <button className="btn btn-ghost" style={{padding:".25rem .7rem",fontSize:".8rem",color:"#7a5040",borderColor:"rgba(180,80,40,.25)"}} onClick={()=>setActiveMundoAndSave(null)}>Desativar</button>
                         </div>
                       )}
@@ -1534,7 +1392,7 @@ Exatamente 3 tópicos iniciados com "- ", apresentando desfechos inesperados, co
                                 </div>
                               </div>
                               <div className="world-card-actions" onClick={e=>e.stopPropagation()}>
-                                <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".82rem"}} onClick={()=>{const _m = normalizeMundo({...m}); setEditingMundo(_m); setMundoEditTab('lore'); setIsNewMundo(false);}}>✏</button>
+                                <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".82rem"}} onClick={()=>{setEditingMundo({...m});setIsNewMundo(false);}}>✏</button>
                                 <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".82rem",color:"#804030",borderColor:"rgba(180,60,40,.25)"}} onClick={()=>deleteMundo(m.id)}>🗑</button>
                               </div>
                             </div>
