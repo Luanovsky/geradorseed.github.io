@@ -229,6 +229,11 @@
     .wf-textarea { word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
 
     .mundo-editor-container { max-width: 100%; overflow-x: hidden; }
+
+    .entity-group-label { font-size: .78rem; color: var(--gold); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin: .8rem 0 .4rem; opacity: .85; }
+    .entity-group-label:first-child { margin-top: 0; }
+    .chip.entity-chip.active { background: rgba(200,151,58,0.22); border-color: var(--gold); color: var(--gold); }
+    .entity-hint { font-size: .82rem; color: var(--parchment-dim); font-style: italic; margin-bottom: .6rem; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -272,6 +277,23 @@
       { id:"aventura-curta", label:"Aventura Curta", desc:"Arco focado de 2 a 4 sessões", icon:"📜" },
       { id:"campanha", label:"Seed de Campanha", desc:"Fundação para uma crônica longa", icon:"📚" },
     ];
+
+    // ── METODOLOGIA DE DESIGN (destilada da skill arquiteto-de-aventuras-rpg) ──
+    // Injetada nos prompts de geração para que a IA aplique os mesmos princípios
+    // de design de aventura usados na skill, sem precisar chamar a skill em si.
+    const SKILL_GUIDANCE = `
+━━ METODOLOGIA DE DESIGN DE AVENTURA ━━
+Aplique estes princípios ao escrever a seed, sem citá-los explicitamente no texto final:
+- ESTRUTURA: deixe implícito, pela forma como os Elementos-Chave se conectam, que tipo de estrutura essa aventura sugere (mistério por pistas, sandbox, dungeon-crawl, three-act) — não escreva os elementos como uma lista solta e desconectada.
+- PISTAS REDUNDANTES: se a seed for de investigação/mistério, a informação central deve poder ser descoberta por mais de um caminho — não dependa de um único NPC, teste ou objeto.
+- NPCs COM PROFUNDIDADE: cada NPC citado nos Elementos-Chave deve sugerir, em uma frase, o que ele quer e o que esconde — não apenas sua função na trama (ex: "o mercador Kael, que finge não saber do contrabando para proteger o próprio filho", não só "o mercador Kael, que sabe do contrabando").
+- ÂNCORA SENSORIAL: a Premissa deve conter pelo menos um detalhe sensorial não-visual (som, cheiro, textura), não só descrição visual do cenário.
+- ESCOLHA SIGNIFICATIVA: pelo menos uma decisão sugerida na seed deve ter consequência clara e perceptível pelo jogador — evite decisões que levam ao mesmo resultado disfarçadas de escolha (o "Ogro Quântico").
+- CLÍMAX COM ESCALADA: pelo menos uma das Reviravoltas & Perigos deve descrever explicitamente algo que muda DURANTE a própria cena de confronto final — não apenas entre uma cena e outra. Ou seja: não basta dizer "se os PJs demorarem, reforços chegam depois" como fato solto; escreva a escalada como parte da cena em si (ex: "a cada rodada que o grupo hesita, a água sobe mais um palmo no túnel", "o aliado ferido piora a olhos vistos enquanto a negociação se arrasta", "o fogo se espalha pelos fardos enquanto o combate acontece"). O confronto final deve ter uma pressão interna que aumenta com o tempo, não só consequências externas adiadas. Além disso, ao menos uma das Reviravoltas deve abrir mais de uma forma de resolver o confronto final (negociar, sabotar, deixar escapar), não só combate direto — isso já funciona bem, mantenha.
+- TERRENO TÁTICO NO CLÍMAX: o local do confronto final merece pelo menos um detalhe físico específico que afete a cena mecanicamente (visibilidade reduzida, estrutura instável, espaço apertado, uma passagem que pode ser bloqueada) — não descreva o clímax apenas pelo que os personagens fazem ali, descreva também onde estão parados e como esse lugar interfere na ação. Isso costuma ser o ponto mais fraco quando a seed é gerada sem reforço explícito — dê atenção redobrada a ele.
+- ANTAGONISTA CONVICTO: se houver um vilão ou força antagonista, prefira uma motivação que ele mesmo considere justificada — convicção, não vilania gratuita.
+- ORÇAMENTO DE COMPLEXIDADE: para uma seed curta, não introduza mais NPCs nomeados do que os Elementos-Chave já pedem — profundidade em poucos nomes vale mais que uma lista grande de nomes rasos.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
     const STORAGE_KEYS = { temas:"rpg-temas", cenarios:"rpg-cenarios", tags:"rpg-tags", historico:"rpg-historico", mundos:"rpg-mundos", activeMundo:"rpg-active-mundo" };
     const CFG_KEY = "rpg-grimorio-cfg";
@@ -517,6 +539,8 @@
       const [mundoIngestLoading, setMundoIngestLoading] = useState(false);
       const [mundoIngestResult, setMundoIngestResult] = useState(null);
       const [adventureLevel, setAdventureLevel] = useState("medio");
+      const [selectedEntities, setSelectedEntities] = useState([]);
+      const [syncingKanka, setSyncingKanka] = useState(false);
       const [editorTab, setEditorTab] = useState("info");
       const [editingIdx, setEditingIdx] = useState(null);
       const [editingType, setEditingType] = useState(null);
@@ -665,14 +689,46 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
 
       const syncKanka = async () => {
         if (!cfg.kankaToken || !editingMundo.kankaId) return alert("Configure token e ID");
+        setSyncingKanka(true);
         try {
+          const campaignId = editingMundo.kankaId;
           const h = {Authorization: `Bearer ${cfg.kankaToken}`, Accept: "application/json"};
-          const locs = await fetch(`https://api.kanka.io/1.0/campaigns/${editingMundo.kankaId}/locations?limit=100`, {headers:h}).then(r=>r.json());
-          const chars = await fetch(`https://api.kanka.io/1.0/campaigns/${editingMundo.kankaId}/characters?limit=100`, {headers:h}).then(r=>r.json());
-          const orgs = await fetch(`https://api.kanka.io/1.0/campaigns/${editingMundo.kankaId}/organisations?limit=100`, {headers:h}).then(r=>r.json());
-          setEditingMundo(p=>({...p, locais: locs.data.map(x=>({id:x.id, nome:x.name, tipo:x.type||"", descricao:x.entry||""})), npcs: chars.data.map(x=>({id:x.id, nome:x.name, profissao:x.title||"", descricao:x.entry||""})), faccoes: orgs.data.map(x=>({id:x.id, nome:x.name, descricao:x.entry||""}))}));
-          alert("✓ Sincronizado!");
+
+          const fetchAttrs = async (entityId) => {
+            if (!entityId) return "";
+            try {
+              const r = await fetch(`https://api.kanka.io/1.0/campaigns/${campaignId}/entities/${entityId}/attributes`, {headers:h});
+              if (!r.ok) return "";
+              const j = await r.json();
+              if (!j.data || j.data.length===0) return "";
+              return j.data.map(a => (a.name||"Propriedade") + ": " + (a.value ? a.value.replace(/<[^>]*>/g," ").replace(/&nbsp;/g," ").replace(/\s+/g," ").trim() : "")).join("\n");
+            } catch(e) { return ""; }
+          };
+
+          const locsRaw = await fetch(`https://api.kanka.io/1.0/campaigns/${campaignId}/locations?limit=100`, {headers:h}).then(r=>r.json());
+          const charsRaw = await fetch(`https://api.kanka.io/1.0/campaigns/${campaignId}/characters?limit=100`, {headers:h}).then(r=>r.json());
+          const orgsRaw = await fetch(`https://api.kanka.io/1.0/campaigns/${campaignId}/organisations?limit=100`, {headers:h}).then(r=>r.json());
+
+          const locais = await Promise.all(locsRaw.data.map(async x => {
+            const attrs = await fetchAttrs(x.entity_id);
+            const descricao = [x.entry||"", attrs].filter(Boolean).join("\n\n");
+            return {id:x.id, nome:x.name, tipo:x.type||"", descricao};
+          }));
+          const npcs = await Promise.all(charsRaw.data.map(async x => {
+            const attrs = await fetchAttrs(x.entity_id);
+            const descricao = [x.entry||"", attrs].filter(Boolean).join("\n\n");
+            return {id:x.id, nome:x.name, profissao:x.title||"", descricao};
+          }));
+          const faccoes = await Promise.all(orgsRaw.data.map(async x => {
+            const attrs = await fetchAttrs(x.entity_id);
+            const descricao = [x.entry||"", attrs].filter(Boolean).join("\n\n");
+            return {id:x.id, nome:x.name, descricao};
+          }));
+
+          setEditingMundo(p=>({...p, locais, npcs, faccoes}));
+          alert("✓ Sincronizado! (incluindo propriedades/atributos)\nLocais: "+locais.length+"\nNPCs: "+npcs.length+"\nFacções: "+faccoes.length);
         } catch(e) { alert("Erro: "+e.message); }
+        setSyncingKanka(false);
       };
 
 
@@ -684,6 +740,44 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
           setEditingType(type);
           setEditingIdx(idx);
         }
+      };
+
+
+
+
+      const stripHtml = (html) => {
+        if (!html) return "";
+        return html.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"'").replace(/\s+/g," ").trim();
+      };
+
+      const summarizeEntityList = (list, fieldName) => {
+        if (!Array.isArray(list) || list.length===0) return "";
+        return list.map(x => "- " + (x.nome||"Sem nome") + (x[fieldName] ? " ("+x[fieldName]+")" : "") + (x.descricao ? ": "+stripHtml(x.descricao).slice(0,150) : "")).join("\n");
+      };
+
+      const toggleEntity = (type, id) => {
+        const key = type + ":" + id;
+        setSelectedEntities(p => p.includes(key) ? p.filter(x=>x!==key) : [...p, key]);
+      };
+
+      const buildSelectedEntitiesContext = () => {
+        if (!activeMundo || selectedEntities.length === 0) return "";
+        const parts = [];
+        selectedEntities.forEach(key => {
+          const sep = key.indexOf(":");
+          const type = key.slice(0, sep);
+          const id = key.slice(sep+1);
+          const list = activeMundo[type];
+          if (!Array.isArray(list)) return;
+          const item = list.find(x => String(x.id) === id);
+          if (!item) return;
+          const descClean = item.descricao ? stripHtml(item.descricao).slice(0,2000) : "";
+          if (type === "locais") parts.push("LOCAL: \"" + item.nome + "\" (tipo: " + (item.tipo||"não especificado") + ") — " + (descClean||"sem descrição"));
+          if (type === "npcs") parts.push("NPC: \"" + item.nome + "\" (cargo/profissão: " + (item.profissao||"não especificado") + ") — " + (descClean||"sem descrição"));
+          if (type === "faccoes") parts.push("FACÇÃO: \"" + item.nome + "\" — " + (descClean||"sem descrição"));
+        });
+        if (parts.length === 0) return "";
+        return "\n\n━━ ENTIDADES OBRIGATÓRIAS NESTA AVENTURA ━━\n" + parts.join("\n") + "\n\nIMPORTANTE: Estas entidades DEVEM aparecer na aventura, com destaque proporcional à sua relevância. Use o campo de tipo/cargo de cada uma para guiar seu papel narrativo — por exemplo: um local do tipo 'Dungeon' ou 'Ruína' sugere exploração e perigo físico; um local do tipo 'Cidade' ou 'Reino' sugere intriga social; um NPC com cargo de liderança (Príncipe, General, Líder) sugere papel político ou de autoridade; um NPC com cargo operacional (Guarda, Mercador, Artesão) sugere papel tático ou de suporte; uma facção sugere motivações coletivas e recursos organizados. Não force um papel incompatível com o tipo declarado da entidade.\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
       };
 
       const callAI = async (prompt, maxTokens = 3000) => {
@@ -760,9 +854,9 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
       const processRawIdea = async () => {
         if (!ideiaCrua.trim()) return;
         setLoading(true); setResultado(null); setSugestoes(null);
-        const worldCtx = activeMundo ? ("\n\nContexto do mundo ativo — " + activeMundo.nome + ":" + (activeMundo.descricao ? "\nDescrição: "+activeMundo.descricao : "") + (activeMundo.lore ? "\nLore: "+activeMundo.lore.slice(0,400) : "") + (activeMundo.locais ? "\nLocais: "+activeMundo.locais.slice(0,200) : "") + (activeMundo.faccoes ? "\nFacções: "+activeMundo.faccoes.slice(0,200) : "") + (activeMundo.npcs ? "\nNPCs: "+activeMundo.npcs.slice(0,200) : "") + (activeMundo.restricoes ? "\nRestrições: "+activeMundo.restricoes : "") + "\n\nIMPORTANTE: A seed deve se encaixar neste mundo.") : "";
+        const worldCtx = activeMundo ? ("\n\nContexto do mundo ativo — " + activeMundo.nome + ":" + (activeMundo.descricao ? "\nDescrição: "+activeMundo.descricao : "") + (activeMundo.lore ? "\nLore: "+activeMundo.lore.slice(0,400) : "") + (Array.isArray(activeMundo.locais)&&activeMundo.locais.length>0 ? "\nLocais:\n"+summarizeEntityList(activeMundo.locais,"tipo") : "") + (Array.isArray(activeMundo.faccoes)&&activeMundo.faccoes.length>0 ? "\nFacções:\n"+summarizeEntityList(activeMundo.faccoes,null) : "") + (Array.isArray(activeMundo.npcs)&&activeMundo.npcs.length>0 ? "\nNPCs:\n"+summarizeEntityList(activeMundo.npcs,"profissao") : "") + (activeMundo.restricoes ? "\nRestrições: "+activeMundo.restricoes : "") + "\n\nIMPORTANTE: A seed deve se encaixar neste mundo, considerando o tipo/cargo de cada entidade para seu papel narrativo.") + buildSelectedEntitiesContext() : "";
         const levelDesc = adventureLevel === "baixo" ? "escopo contido, desafios localizados, mistério ou exploração de pequena escala, ameaças imediatas e diretas" : adventureLevel === "alto" ? "escopo épico, múltiplos atores influentes em jogo, consequências duradouras, segredos profundos ou conspiração complexa" : "escopo moderado, conflitos faccionários ou políticos, dilemas com múltiplas soluções, consequências regionais";
-        const prompt = "Você é um mestre experiente de GURPS criando aventuras. Recebi estas anotações:\n\"" + ideiaCrua + "\"" + worldCtx + "\n\n🎯 ESCOPO DA AVENTURA: " + adventureLevel.toUpperCase() + "\nDescrição: " + levelDesc + "\n\nCRÍTICO — Evite redundância de personagens:\n- Se um NPC com CARGO/POSIÇÃO já existe no mundo, NÃO REPITA em múltiplos papéis\n- Use personagens existentes APENAS UMA VEZ, em papel estratégico\n- Novos NPCs devem ter papéis específicos ou únicos\n\n📋 ESTRUTURA OBRIGATÓRIA:\n\n## Título\nAlgo memorável e evocativo.\n\n## Premissa\n2-3 parágrafos imersivos detalhando: atmosfera, conflito central, o que está em jogo.\n\n## Ponto de Partida\nComo os PJs são inseridos fisicamente nesta situação.\n\n## Elementos-Chave\nExatamente 5 itens com '- ' descrevendo: pistas, locais, NPCs, facções ou objetos importantes.\n\n## Reviravoltas & Perigos\n3 complicações ou desfechos inesperados com '- '.\n\nAJUSTE O TOM ao escopo: " + (adventureLevel === "baixo" ? "simples, direto, pessoal" : adventureLevel === "alto" ? "épico, sombrio, consequente" : "intrincado, multifacetado, político") + ".";
+        const prompt = "Você é um mestre experiente de GURPS criando aventuras. Recebi estas anotações:\n\"" + ideiaCrua + "\"" + worldCtx + "\n\n🎯 ESCOPO DA AVENTURA: " + adventureLevel.toUpperCase() + "\nDescrição: " + levelDesc + "\n\nCRÍTICO — Evite redundância de personagens:\n- Se um NPC com CARGO/POSIÇÃO já existe no mundo, NÃO REPITA em múltiplos papéis\n- Use personagens existentes APENAS UMA VEZ, em papel estratégico\n- Novos NPCs devem ter papéis específicos ou únicos\n" + SKILL_GUIDANCE + "\n\n📋 ESTRUTURA OBRIGATÓRIA:\n\n## Título\nAlgo memorável e evocativo.\n\n## Premissa\n2-3 parágrafos imersivos detalhando: atmosfera, conflito central, o que está em jogo.\n\n## Ponto de Partida\nComo os PJs são inseridos fisicamente nesta situação. CRÍTICO: se a anotação original do mestre especificar um tipo de inserção (ex: \"encontro aleatório\" = os PJs NÃO fazem parte da situação, apenas cruzam com ela de fora, em sua própria jornada; diferente de serem contratados, membros ou convidados), o Ponto de Partida DEVE refletir EXATAMENTE esse tipo de inserção.\n\n## Elementos-Chave\nExatamente 5 itens com '- ' descrevendo: pistas, locais, NPCs, facções ou objetos importantes.\n\n## Reviravoltas & Perigos\n3 complicações ou desfechos inesperados com '- '.\n\nAJUSTE O TOM ao escopo: " + (adventureLevel === "baixo" ? "simples, direto, pessoal" : adventureLevel === "alto" ? "épico, sombrio, consequente" : "intrincado, multifacetado, político") + ".";
         try {
           const text = await callAI(prompt);
           setResultado(text);
@@ -861,17 +955,23 @@ Funda com o que já existe (não apague, expanda). Se uma categoria não tiver i
 - Escopo Estrutural: ${eObj?`${eObj.label} (${eObj.desc})`:"Aventura Padrão"}
 - NÍVEL DE ESCOPO: ${adventureLevel.toUpperCase()} — ${levDesc}
 - Elementos Requeridos (Tags): ${selTags.length>0?selTags.map(x=>x.label).join(", "):"Livre"}
-${dica.trim()?`- DIRETRIZ ESPECÍFICA DO MESTRE: ${dica}`:""}
 ${buildMasterContext()}
 ${activeMundo ? `
 ━━ CONTEXTO DO MUNDO ATIVO: "${activeMundo.nome}" ━━
 ${activeMundo.descricao ? "Descrição: "+activeMundo.descricao : ""}
 ${activeMundo.lore ? "Lore e história: "+activeMundo.lore.slice(0,600) : ""}
-${activeMundo.locais ? "Locais e regiões existentes: "+activeMundo.locais.slice(0,400) : ""}
-${activeMundo.faccoes ? "Facções e organizações: "+activeMundo.faccoes.slice(0,400) : ""}
-${activeMundo.npcs ? "NPCs importantes: "+activeMundo.npcs.slice(0,400) : ""}
+${Array.isArray(activeMundo.locais) && activeMundo.locais.length>0 ? "Locais e regiões existentes:\n"+summarizeEntityList(activeMundo.locais,"tipo") : ""}
+${Array.isArray(activeMundo.faccoes) && activeMundo.faccoes.length>0 ? "Facções e organizações:\n"+summarizeEntityList(activeMundo.faccoes,null) : ""}
+${Array.isArray(activeMundo.npcs) && activeMundo.npcs.length>0 ? "NPCs importantes (evite repetir os de cargo já usados antes):\n"+summarizeEntityList(activeMundo.npcs,"profissao") : ""}
 ${activeMundo.restricoes ? "RESTRIÇÕES DO MUNDO (respeite obrigatoriamente): "+activeMundo.restricoes : ""}
-IMPORTANTE: Toda a seed deve ser ambientada neste mundo específico. Use os locais, facções e NPCs listados quando relevante. Respeite rigorosamente as restrições.
+IMPORTANTE: Toda a seed deve ser ambientada neste mundo específico. Use os locais, facções e NPCs listados quando relevante, considerando o tipo/cargo de cada um para definir seu papel narrativo. Respeite rigorosamente as restrições.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ""}
+${buildSelectedEntitiesContext()}
+${SKILL_GUIDANCE}
+${dica.trim() ? `
+━━ DIRETRIZ ESPECÍFICA DO MESTRE (PRIORIDADE MÁXIMA) ━━
+${dica}
+Esta diretriz é a instrução mais importante desta geração: ela deve guiar o tom, foco, conflito ou conteúdo da aventura acima de qualquer elemento genérico listado anteriormente (tema, cenário, tags). Se houver conflito entre a diretriz e outros elementos, a diretriz prevalece. Preste atenção especial a como ela descreve a FORMA de inserção dos personagens (ex: "encontro aleatório" significa que os PJs NÃO fazem parte do grupo/situação descrita — eles estão em sua própria jornada e cruzam com ela por acaso, de fora; isso é diferente de serem contratados, membros ou convidados). O ## Ponto de Partida deve refletir literalmente essa forma de inserção.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ""}
 
 A resposta DEVE usar exatamente os títulos abaixo com "## ":
@@ -880,7 +980,7 @@ Um título memorável e evocativo.
 ## Premissa
 2 a 3 parágrafos imersivos detalhando a atmosfera, o conflito central e o que está em jogo.
 ## Ponto de Partida
-Como os personagens dos jogadores são inseridos fisicamente nesta situação.
+Como os personagens dos jogadores são inseridos fisicamente nesta situação. CRÍTICO: se a diretriz específica do mestre (mais abaixo) especificar um tipo de inserção — por exemplo "encontro aleatório", "contratados/empregados", "prisioneiros", "já conhecidos de um NPC", "testemunhas por acaso" — o Ponto de Partida DEVE refletir EXATAMENTE esse tipo de inserção, e não apenas reaproveitar o cenário ou tema geral com uma inserção genérica diferente da pedida.
 ## Elementos-Chave
 Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
 ## Reviravoltas & Perigos
@@ -1107,6 +1207,58 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
                     </div>
                   </div>
 
+                  {activeMundo && ((Array.isArray(activeMundo.npcs)&&activeMundo.npcs.length>0) || (Array.isArray(activeMundo.locais)&&activeMundo.locais.length>0) || (Array.isArray(activeMundo.faccoes)&&activeMundo.faccoes.length>0)) && (
+                    <div className="section">
+                      <div className="section-title">🎭 Entidades a Envolver (Opcional)</div>
+                      <p className="entity-hint">Selecione NPCs, Locais ou Facções específicas do mundo ativo para garantir que apareçam na aventura. A IA usará o tipo/cargo de cada entidade para definir seu papel na história.</p>
+
+                      {Array.isArray(activeMundo.locais) && activeMundo.locais.length>0 && (
+                        <div>
+                          <div className="entity-group-label">🏰 Locais</div>
+                          <div className="chip-grid">
+                            {activeMundo.locais.map(item=>(
+                              <div key={item.id} className={`chip entity-chip ${selectedEntities.includes("locais:"+item.id)?"active":""}`} onClick={()=>toggleEntity("locais",item.id)}>
+                                {item.nome||"[Sem nome]"} {item.tipo && <span style={{opacity:.6,fontSize:".8em"}}>({item.tipo})</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(activeMundo.npcs) && activeMundo.npcs.length>0 && (
+                        <div>
+                          <div className="entity-group-label">👥 NPCs</div>
+                          <div className="chip-grid">
+                            {activeMundo.npcs.map(item=>(
+                              <div key={item.id} className={`chip entity-chip ${selectedEntities.includes("npcs:"+item.id)?"active":""}`} onClick={()=>toggleEntity("npcs",item.id)}>
+                                {item.nome||"[Sem nome]"} {item.profissao && <span style={{opacity:.6,fontSize:".8em"}}>({item.profissao})</span>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {Array.isArray(activeMundo.faccoes) && activeMundo.faccoes.length>0 && (
+                        <div>
+                          <div className="entity-group-label">⚔️ Facções</div>
+                          <div className="chip-grid">
+                            {activeMundo.faccoes.map(item=>(
+                              <div key={item.id} className={`chip entity-chip ${selectedEntities.includes("faccoes:"+item.id)?"active":""}`} onClick={()=>toggleEntity("faccoes",item.id)}>
+                                {item.nome||"[Sem nome]"}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedEntities.length>0 && (
+                        <div style={{marginTop:".6rem"}}>
+                          <button className="idea-quick-btn" style={{color:"var(--red)",borderColor:"rgba(192,96,64,.3)"}} onClick={()=>setSelectedEntities([])}>Limpar seleção ({selectedEntities.length})</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="idea-area">
                     <div className="section-title">✍ Diretrizes Específicas (Opcional)</div>
                     <textarea className="idea-textarea" placeholder="Ex: Uma aventura investigativa para adaptar no Pathfinder 2e, focada em perícias..." value={dica} onChange={e=>setDica(e.target.value)}/>
@@ -1326,7 +1478,7 @@ Exatamente 5 tópicos com "- " detalhando pistas, locais, NPCs ou facções.
 
                           {editorTab==="npcs"&&<div><button onClick={()=>{const n=Array.isArray(editingMundo.npcs)?editingMundo.npcs:[];n.push({id:Date.now(),nome:"",profissao:"",descricao:""});setEditingMundo(p=>({...p,npcs:n}));}} className="crud-btn-add">+ Novo NPC</button><div className="crud-list">{Array.isArray(editingMundo.npcs)&&editingMundo.npcs.map((item,idx)=><div key={idx}><div className={`crud-card ${editingType==="npcs"&&editingIdx===idx?"editing":""}`} onClick={()=>toggleEdit("npcs",idx)}><div className="crud-name">{item.nome||"[Sem nome]"}</div><div className="crud-type">{item.profissao}</div></div>{editingType==="npcs"&&editingIdx===idx&&<div className="crud-editor"><input className="crud-input" placeholder="Nome" value={item.nome||""} onChange={e=>{const n=[...editingMundo.npcs];n[idx].nome=e.target.value;setEditingMundo(p=>({...p,npcs:n}));}} /><input className="crud-input" placeholder="Profissão" value={item.profissao||""} onChange={e=>{const n=[...editingMundo.npcs];n[idx].profissao=e.target.value;setEditingMundo(p=>({...p,npcs:n}));}} /><textarea className="crud-textarea" placeholder="Descrição" value={item.descricao||""} onChange={e=>{const n=[...editingMundo.npcs];n[idx].descricao=e.target.value;setEditingMundo(p=>({...p,npcs:n}));}} /><div className="crud-buttons"><button className="crud-btn crud-btn-save" onClick={()=>{setEditingType(null);setEditingIdx(null);}}>✓ Pronto</button><button className="crud-btn crud-btn-del" onClick={()=>{setEditingMundo(p=>({...p,npcs:p.npcs.filter((_,i)=>i!==idx)}));setEditingType(null);setEditingIdx(null);}}>🗑 Deletar</button></div></div>}</div>)}</div></div>}
 
-                          {editorTab==="kanka"&&cfg.kankaToken&&<div><div className="wf-row"><label className="wf-label">ID da Campanha Kanka</label><input type="text" className="wf-input" placeholder="Ex: 408293" value={editingMundo.kankaId||""} onChange={e=>setEditingMundo(p=>({...p,kankaId:e.target.value}))}/></div><button onClick={syncKanka} className="btn btn-ingest" style={{width:"100%"}}>🔄 Sincronizar do Kanka</button></div>}
+                          {editorTab==="kanka"&&cfg.kankaToken&&<div><div className="wf-row"><label className="wf-label">ID da Campanha Kanka</label><input type="text" className="wf-input" placeholder="Ex: 408293" value={editingMundo.kankaId||""} onChange={e=>setEditingMundo(p=>({...p,kankaId:e.target.value}))}/></div><button onClick={syncKanka} className="btn btn-ingest" disabled={syncingKanka} style={{width:"100%"}}>{syncingKanka?"⏳ Sincronizando (buscando propriedades...)":"🔄 Sincronizar do Kanka"}</button><p className="entity-hint" style={{marginTop:".5rem"}}>Inclui descrição principal + propriedades/atributos personalizados de cada entidade (Geografia, Sociedade, etc).</p></div>}
 
                         </div>
                       </div>
